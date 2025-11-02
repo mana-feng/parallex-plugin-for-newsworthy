@@ -2,6 +2,8 @@ import CryptoJS from 'crypto-js';
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'newsworthy-editor-secret-key-2025';
 
+// Database encryption functions for storing sensitive data
+
 export function encrypt(plainText) {
   if (!plainText) {
     return null;
@@ -42,5 +44,9 @@ export function isEncrypted(text) {
   return text.length > 50 && /[+/=]/.test(text);
 }
 
-export default { encrypt, decrypt, isEncrypted };
+export default { 
+  encrypt, 
+  decrypt, 
+  isEncrypted
+};
 

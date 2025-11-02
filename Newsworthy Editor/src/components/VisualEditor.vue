@@ -3,7 +3,8 @@
         <Headerbar class="header" />
         <CanvasArea ref="canvasArea" class="canvas" />
         <Sidebar class="sidebar" 
-            @add-section="L_addSection" 
+            @add-section="L_addSection"
+            @add-parallax="L_addParallax" 
             @open-storage="showStorageManager = true" 
             @open-settings="showSettings = true" />
         <PreviewOverlay v-if="store.isPreview" :html="htmlDoc" @exit="store.stopPreview" />
@@ -36,6 +37,10 @@ const htmlDoc = computed(() => buildHtml(store.sections))
 
 const L_addSection = () => {
     store.addSection()
+}
+
+const L_addParallax = () => {
+    store.addParallaxSection()
 }
 
 // press ESC to exit preview mode

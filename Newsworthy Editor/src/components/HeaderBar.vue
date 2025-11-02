@@ -2,7 +2,7 @@
     <header class="header-bar">
         <div class="header-left">
             <button class="home-btn" @click="handleReturnHome" title="Return to initial empty page">
-                🏠 Home
+                ⌂ Home
             </button>
         </div>
         <h1 class="header-title">
@@ -18,41 +18,51 @@
                 @click="handleUpdate"
                 :disabled="store.sections.length === 0"
             >
-                💾 Update
+                ⬆ Update
             </button>
             <button 
                 class="save-btn" 
                 @click="handleSaveNew"
                 :disabled="store.sections.length === 0"
             >
-                ✨ Save New
+                + Save New
             </button>
-            <button class="preview-btn" @click="store.togglePreview">👁️ Preview</button>
+            <button class="preview-btn" @click="store.togglePreview">👁 Preview</button>
         </div>
     </header>
 </template>
 
 <script setup>
 import { useEditorStore } from '@/stores/editorStore'
+import * as dialog from '@/utils/dialog'
 
 const store = useEditorStore()
 
 const handleUpdate = async () => {
     if (!store.currentPageInfo.isLoaded) {
-        alert('⚠️ No page is currently loaded for editing.')
+        await dialog.warning('No page is currently loaded for editing.', {
+            title: 'No Page Loaded',
+            icon: '!'
+        })
         return
     }
     
     if (store.sections.length === 0) {
-        alert('⚠️ Please add content before updating!')
+        await dialog.warning('Please add content before updating.\n\nAdd at least one section to your page.', {
+            title: 'No Content',
+            icon: '!'
+        })
         return
     }
     
-    const confirmed = confirm(
-        `📝 Update page "${store.currentPageInfo.title}"?\n\n` +
-        `This will overwrite the existing page with your current edits.\n\n` +
-        `Filename: ${store.currentPageInfo.filename}\n\n` +
-        `Continue?`
+    const confirmed = await dialog.confirm(
+        `Update page "${store.currentPageInfo.title}"?\n\nThis will overwrite the existing page with your current edits.\n\nFilename: ${store.currentPageInfo.filename}\n\nContinue?`,
+        {
+            title: 'Update Page',
+            icon: '✎',
+            confirmText: 'Update',
+            cancelText: 'Cancel'
+        }
     )
     
     if (!confirmed) return
@@ -74,14 +84,21 @@ const handleUpdate = async () => {
         })
         
         if (response.ok) {
-            alert(`✅ Successfully updated "${store.currentPageInfo.title}"!\n\n💾 Changes saved to database and GitHub Pages.`)
+            await dialog.success(`"${store.currentPageInfo.title}" has been updated.\n\nChanges saved to database and GitHub Pages.`, {
+                title: 'Page Updated Successfully',
+                icon: '✓'
+            })
         } else {
             const error = await response.json()
-            alert(`❌ Update failed: ${error.error}`)
+            await dialog.error(error.error, {
+                title: 'Failed to Update Page'
+            })
         }
     } catch (error) {
         console.error('Update error:', error)
-        alert('❌ Update failed. Please ensure the backend server is running.')
+        await dialog.error('Please ensure the backend server is running.', {
+            title: 'Failed to Update Page'
+        })
     }
 }
 
@@ -89,8 +106,8 @@ const handleSaveNew = () => {
     document.dispatchEvent(new CustomEvent('trigger-save-new'))
 }
 
-const handleReturnHome = () => {
-    store.returnToHome()
+const handleReturnHome = async () => {
+    await store.returnToHome()
 }
 </script>
 

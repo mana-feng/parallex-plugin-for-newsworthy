@@ -7,49 +7,106 @@
       <button class="btn" @click="store.addTextBlock" :disabled="!store.currSection">+ Add Text Block</button>
       <button class="btn" @click="handleAddImage" :disabled="!store.currSection">+ Add Image Block</button>
       <button class="btn" @click="handleAddVideo" :disabled="!store.currSection">+ Add Video Block</button>
-      <button class="btn" @click="$emit('add-parallax')">+ Add Parallax</button>
-      <button class="btn btn-storage" @click="$emit('open-storage')">📚 Storage Manager</button>
-      <button class="btn btn-settings" @click="$emit('open-settings')">⚙️ Settings</button>
+      <button class="btn btn-parallax" @click="$emit('add-parallax')">+ Add Parallax</button>
+      <button class="btn btn-storage" @click="$emit('open-storage')">Storage Manager</button>
+      <button class="btn btn-settings" @click="$emit('open-settings')">⚙ Settings</button>
     </div>
 
     <div v-if="showVideoModal" class="modal-overlay" @click.self="closeVideoModal">
-      <div class="modal-container">
+      <div class="modal-container video-modal">
         <div class="modal-header">
-          <h3>🎬 Add YouTube Video</h3>
+          <div class="header-content">
+            <div class="header-icon">▶</div>
+            <div>
+              <h3>Add YouTube Video</h3>
+              <p class="modal-subtitle">Embed a YouTube video into your page</p>
+            </div>
+          </div>
           <button class="modal-close" @click="closeVideoModal">×</button>
         </div>
         <div class="modal-body">
-          <label class="modal-label">YouTube Video URL</label>
-          <input 
-            type="text" 
-            v-model="videoUrl" 
-            class="modal-input"
-            placeholder="https://www.youtube.com/watch?v=..."
-            @keyup.enter="confirmAddVideo"
-            ref="videoUrlInput"
-          />
-          <div class="modal-hint">
-            <p>Supported formats:</p>
-            <ul>
-              <li>🎥 Standard: https://www.youtube.com/watch?v=VIDEO_ID</li>
-              <li>🔗 Short link: https://youtu.be/VIDEO_ID</li>
-              <li>📱 Shorts: https://www.youtube.com/shorts/VIDEO_ID</li>
-              <li>🔴 Live: https://www.youtube.com/live/VIDEO_ID</li>
-              <li>📦 Embed: https://www.youtube.com/embed/VIDEO_ID</li>
-            </ul>
+          <div class="form-section">
+            <label class="modal-label">
+              <span class="label-icon">🔗</span>
+              YouTube Video URL
+            </label>
+            <input 
+              type="text" 
+              v-model="videoUrl" 
+              class="modal-input"
+              placeholder="Paste your YouTube URL here..."
+              @keyup.enter="confirmAddVideo"
+              ref="videoUrlInput"
+            />
+          </div>
+          
+          <div class="info-section">
+            <div class="info-header">
+              <span class="info-icon">💡</span>
+              <span class="info-title">Supported URL Formats</span>
+            </div>
+            <div class="format-list">
+              <div class="format-item">
+                <span class="format-icon">🎥</span>
+                <div class="format-details">
+                  <div class="format-title">Standard Video</div>
+                  <div class="format-example">youtube.com/watch?v=VIDEO_ID</div>
+                </div>
+              </div>
+              <div class="format-item">
+                <span class="format-icon">🔗</span>
+                <div class="format-details">
+                  <div class="format-title">Short Link</div>
+                  <div class="format-example">youtu.be/VIDEO_ID</div>
+                </div>
+              </div>
+              <div class="format-item">
+                <span class="format-icon">📱</span>
+                <div class="format-details">
+                  <div class="format-title">Shorts</div>
+                  <div class="format-example">youtube.com/shorts/VIDEO_ID</div>
+                </div>
+              </div>
+              <div class="format-item">
+                <span class="format-icon">🔴</span>
+                <div class="format-details">
+                  <div class="format-title">Live Stream</div>
+                  <div class="format-example">youtube.com/live/VIDEO_ID</div>
+                </div>
+              </div>
+              <div class="format-item">
+                <span class="format-icon">📦</span>
+                <div class="format-details">
+                  <div class="format-title">Embed Link</div>
+                  <div class="format-example">youtube.com/embed/VIDEO_ID</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="modal-btn modal-btn-cancel" @click="closeVideoModal">Cancel</button>
-          <button class="modal-btn modal-btn-confirm" @click="confirmAddVideo">Add Video</button>
+          <button class="modal-btn modal-btn-cancel" @click="closeVideoModal">
+            <span class="btn-icon">✕</span>
+            Cancel
+          </button>
+          <button class="modal-btn modal-btn-confirm" @click="confirmAddVideo" :disabled="!videoUrl.trim()">
+            <span class="btn-icon">✓</span>
+            Add Video
+          </button>
         </div>
       </div>
     </div>
 
     <div v-if="showImageModal" class="modal-overlay" @click.self="closeImageModal">
-      <div class="modal-container">
+      <div class="modal-container image-modal">
         <div class="modal-header">
-          <h3>🖼️ Add Image Block</h3>
+          <div class="header-content">
+            <div class="header-icon" style="animation: none;">🖼️</div>
+            <div>
+              <h3>Add Image Block</h3>
+              <p class="modal-subtitle">Choose an image type and upload or provide a URL</p>
+            </div>
+          </div>
           <button class="modal-close" @click="closeImageModal">×</button>
         </div>
         <div class="modal-body">
@@ -103,28 +160,66 @@
           </div>
 
           <div v-if="imageSourceTab === 'url'" class="tab-content">
-            <label class="modal-label">Image URL</label>
-            <input 
-              type="text" 
-              v-model="imageUrl" 
-              class="modal-input"
-              placeholder="https://example.com/image.jpg"
-              @keyup.enter="confirmAddImage"
-              ref="imageUrlInput"
-            />
-            <div class="modal-hint">
-              <p>Enter a direct link to an image:</p>
-              <ul>
-                <li>https://example.com/photo.jpg</li>
-                <li>https://example.com/image.png</li>
-                <li>Supported: JPG, PNG, GIF, WebP, SVG</li>
-              </ul>
+            <div class="form-section">
+              <label class="modal-label">
+                <span class="label-icon">🔗</span>
+                Image URL
+              </label>
+              <input 
+                type="text" 
+                v-model="imageUrl" 
+                class="modal-input"
+                placeholder="https://example.com/image.jpg"
+                @keyup.enter="confirmAddImage"
+                ref="imageUrlInput"
+              />
+            </div>
+            
+            <div class="info-section">
+              <div class="info-header">
+                <span class="info-icon">💡</span>
+                <span class="info-title">Supported Formats</span>
+              </div>
+              <div class="format-list">
+                <div class="format-item">
+                  <span class="format-icon">📷</span>
+                  <div class="format-details">
+                    <div class="format-title">JPEG Images</div>
+                    <div class="format-example">https://example.com/photo.jpg</div>
+                  </div>
+                </div>
+                <div class="format-item">
+                  <span class="format-icon">🖼️</span>
+                  <div class="format-details">
+                    <div class="format-title">PNG Images</div>
+                    <div class="format-example">https://example.com/image.png</div>
+                  </div>
+                </div>
+                <div class="format-item">
+                  <span class="format-icon">🎨</span>
+                  <div class="format-details">
+                    <div class="format-title">Other Formats</div>
+                    <div class="format-example">GIF, WebP, SVG also supported</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           <div v-if="imageSourceTab === 'upload'" class="tab-content">
-            <label class="modal-label">Choose Image File</label>
-            <div class="upload-area" @click="triggerFileInput">
+            <label class="modal-label">
+              <span class="label-icon">📁</span>
+              Choose Image File
+            </label>
+            <div 
+              class="upload-area" 
+              :class="{ 'drag-over': isDraggingOver }"
+              @click="triggerFileInput"
+              @dragenter.prevent="handleDragEnter"
+              @dragover.prevent="handleDragOver"
+              @dragleave.prevent="handleDragLeave"
+              @drop.prevent="handleDrop"
+            >
               <div v-if="!selectedImageFile" class="upload-placeholder">
                 <div class="upload-icon">📁</div>
                 <p class="upload-text">Click to select an image</p>
@@ -146,8 +241,122 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button class="modal-btn modal-btn-cancel" @click="closeImageModal">Cancel</button>
-          <button class="modal-btn modal-btn-confirm" @click="confirmAddImage">Add Image</button>
+          <button class="modal-btn modal-btn-cancel" @click="closeImageModal">
+            <span class="btn-icon">✕</span>
+            Cancel
+          </button>
+          <button class="modal-btn modal-btn-confirm" @click="confirmAddImage">
+            <span class="btn-icon">✓</span>
+            Add Image
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conflict Resolution Modal -->
+    <!-- Image Conflict Resolution Modal -->
+    <div v-if="showConflictModal" class="modal-overlay" @click.self="cancelConflictResolutions">
+      <div class="modal-container conflict-modal">
+        <div class="modal-header">
+          <div class="conflict-header-content">
+            <div class="conflict-icon">⚠️</div>
+            <div>
+              <h3>Image File Conflicts Detected</h3>
+              <p class="modal-subtitle">
+                {{ conflictImages.length }} image{{ conflictImages.length > 1 ? 's' : '' }} already exist{{ conflictImages.length === 1 ? 's' : '' }} in GitHub. 
+                Choose how to handle each conflict:
+              </p>
+            </div>
+          </div>
+          <button class="modal-close" @click="cancelConflictResolutions">×</button>
+        </div>
+        
+        <div class="modal-body conflict-list">
+          <div v-for="(conflict, index) in conflictImages" :key="conflict.imageId" class="conflict-item">
+            <div class="conflict-item-header">
+              <div class="conflict-number">{{ index + 1 }}</div>
+              <div class="conflict-info">
+                <div class="conflict-filename">
+                  <span class="file-icon">📄</span>
+                  <span class="filename-text">{{ conflict.filename }}</span>
+                </div>
+                <div class="conflict-path">{{ conflict.path }}</div>
+              </div>
+            </div>
+            
+            <div class="conflict-actions">
+              <div class="action-option">
+                <label class="conflict-action-label" :class="{ 'active': conflictResolutions[conflict.imageId]?.action === 'overwrite' }">
+                  <input 
+                    type="radio" 
+                    :name="`conflict-${conflict.imageId}`"
+                    value="overwrite"
+                    :checked="conflictResolutions[conflict.imageId]?.action === 'overwrite'"
+                    @change="updateConflictResolution(conflict.imageId, 'overwrite')"
+                  />
+                  <div class="action-content">
+                    <div class="action-icon overwrite-icon">🔄</div>
+                    <div class="action-text">
+                      <span class="action-title">Overwrite existing file</span>
+                      <span class="action-description">Replace the file on GitHub with this new version</span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+              
+              <div class="action-option">
+                <label class="conflict-action-label" :class="{ 'active': conflictResolutions[conflict.imageId]?.action === 'rename' }">
+                  <input 
+                    type="radio" 
+                    :name="`conflict-${conflict.imageId}`"
+                    value="rename"
+                    :checked="conflictResolutions[conflict.imageId]?.action === 'rename'"
+                    @change="updateConflictResolution(conflict.imageId, 'rename', conflict.filename)"
+                  />
+                  <div class="action-content">
+                    <div class="action-icon rename-icon">✏️</div>
+                    <div class="action-text">
+                      <span class="action-title">Rename and upload as new file</span>
+                      <span class="action-description">Keep both files by using a different name</span>
+                    </div>
+                  </div>
+                </label>
+                
+                <div 
+                  v-if="conflictResolutions[conflict.imageId]?.action === 'rename'"
+                  class="rename-input-container"
+                >
+                  <input 
+                    type="text"
+                    class="rename-input modal-input"
+                    :value="conflictResolutions[conflict.imageId]?.newFilename"
+                    @input="updateConflictResolution(conflict.imageId, 'rename', $event.target.value)"
+                    placeholder="Enter new filename (e.g., image-v2.png)"
+                  />
+                  <span class="input-hint">Tip: Add a suffix like -v2, -new, or timestamp</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <div class="footer-info">
+            <span class="info-icon">ℹ️</span>
+            <span class="info-text">All conflicts must be resolved before continuing</span>
+          </div>
+          <div class="footer-actions">
+            <button class="modal-btn modal-btn-cancel" @click="cancelConflictResolutions">
+              Cancel Upload
+            </button>
+            <button 
+              class="modal-btn modal-btn-confirm" 
+              @click="confirmConflictResolutions"
+              :disabled="!allConflictsResolved"
+            >
+              Continue Upload ({{ resolvedCount }}/{{ conflictImages.length }})
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -587,7 +796,9 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useEditorStore } from '@/stores/editorStore'
-import ImageSettingsPanel from "@/components/ImageSettingsPanel.vue";
+import ImageSettingsPanel from "@/components/ImageSettingsPanel.vue"
+import * as dialog from '@/utils/dialog'
+import { promptInput, promptPageInfo } from '@/utils/inputModal'
 const store = useEditorStore()
 const curr = computed(() => store.currSection)
 const textColor = ref('#000000')
@@ -745,9 +956,18 @@ function setFontFamily(family) {
   }
 }
 
-function setLink() {
-  const url = prompt('Enter URL:')
-  if (url == null) return
+async function setLink() {
+  const url = await promptInput({
+    title: 'Add Link',
+    subtitle: 'Enter the URL for this link',
+    label: 'URL',
+    placeholder: 'https://example.com',
+    icon: '🔗',
+    inputType: 'url',
+    hint: 'Enter the full URL including http:// or https://',
+    confirmText: 'Add Link'
+  })
+  if (!url) return
   store.activeEditor?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
@@ -807,9 +1027,11 @@ function replaceImage() {
       }
     }
     
-    img.onerror = () => {
+    img.onerror = async () => {
       URL.revokeObjectURL(url)
-      alert('❌ Failed to load image. Please try another file.')
+      await dialog.error('Failed to load image.\n\nPlease try another file.', {
+        title: 'Image Load Error'
+      })
     }
     
     img.src = url
@@ -827,12 +1049,58 @@ const bgColorProxy = computed({
   set: (val) => store.setSecBg(val)
 })
 
-const onImageUpload = (e) => {
+const onImageUpload = async (e) => {
   if (!curr.value) return
   const file = e.target.files?.[0]
   if (!file) return
-  const url = URL.createObjectURL(file)
-  store.setSecBgImg(url)
+  
+  try {
+    // Read file as data URL
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result
+      
+      try {
+        // Save to local database first (for preview)
+        const response = await fetch('http://localhost:3001/api/images/temp/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            imageData: dataUrl,
+            filename: file.name
+          })
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to save image to local database')
+        }
+        
+        const result = await response.json()
+        
+        // Use local URL for preview (will be uploaded to GitHub on publish)
+        store.setSecBgImg(result.localUrl)
+        } catch (saveError) {
+          console.error('Local save failed:', saveError)
+        // Fallback: use data URL directly
+        store.setSecBgImg(dataUrl)
+      }
+    }
+    
+    reader.onerror = () => {
+      // Fallback: use blob URL if reading fails
+      const url = URL.createObjectURL(file)
+      store.setSecBgImg(url)
+    }
+    
+    reader.readAsDataURL(file)
+  } catch (error) {
+    console.error('Background image upload error:', error)
+    // Fallback: use blob URL
+    const url = URL.createObjectURL(file)
+    store.setSecBgImg(url)
+  }
 }
 
 const clearImage = () => {
@@ -856,9 +1124,12 @@ const closeVideoModal = () => {
   videoUrl.value = ''
 }
 
-const confirmAddVideo = () => {
+const confirmAddVideo = async () => {
   if (!videoUrl.value.trim()) {
-    alert('⚠️ Please enter a YouTube URL')
+    await dialog.warning('Please enter a YouTube URL.\n\nA valid YouTube video URL is required.', {
+      title: 'URL Required',
+      icon: '⚠️'
+    })
     return
   }
   
@@ -874,6 +1145,58 @@ const imageUrlInput = ref(null)
 const imageFileInput = ref(null)
 const selectedImageFile = ref(null)
 const imagePreviewUrl = ref('')
+const isDraggingOver = ref(false)
+
+// Conflict resolution modal state
+const showConflictModal = ref(false)
+const conflictImages = ref([])
+const conflictResolutions = ref({})
+const conflictResolveCallback = ref(null)
+
+// Computed properties for conflict resolution UI
+const resolvedCount = computed(() => {
+  return Object.keys(conflictResolutions.value).filter(imageId => {
+    const resolution = conflictResolutions.value[imageId]
+    if (!resolution) return false
+    if (resolution.action === 'overwrite') return true
+    if (resolution.action === 'rename' && resolution.newFilename && resolution.newFilename.trim()) {
+      return true
+    }
+    return false
+  }).length
+})
+
+const allConflictsResolved = computed(() => {
+  if (conflictImages.value.length === 0) return false
+  return resolvedCount.value === conflictImages.value.length
+})
+
+const updateConflictResolution = (imageId, action, newFilename = null) => {
+  const conflict = conflictImages.value.find(c => c.imageId === imageId)
+  if (!conflict) return
+  
+  conflictResolutions.value[imageId] = {
+    action: action,
+    newFilename: action === 'rename' ? (newFilename || conflict.filename) : conflict.filename,
+    sha: conflict.sha
+  }
+}
+
+const confirmConflictResolutions = () => {
+  if (conflictResolveCallback.value) {
+    conflictResolveCallback.value(conflictResolutions.value)
+  }
+  showConflictModal.value = false
+  conflictResolveCallback.value = null
+}
+
+const cancelConflictResolutions = () => {
+  if (conflictResolveCallback.value) {
+    conflictResolveCallback.value(null)
+  }
+  showConflictModal.value = false
+  conflictResolveCallback.value = null
+}
 
 const handleAddImage = () => {
   showImageModal.value = true
@@ -882,6 +1205,7 @@ const handleAddImage = () => {
   imageUrl.value = ''
   selectedImageFile.value = null
   imagePreviewUrl.value = ''
+  isDraggingOver.value = false
   nextTick(() => {
     if (imageSourceTab.value === 'url') imageUrlInput.value?.focus()
   })
@@ -904,18 +1228,61 @@ const triggerFileInput = () => {
 const handleFileSelect = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
+  processImageFile(file)
+}
+
+const processImageFile = async (file) => {
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    await dialog.warning('Please select an image file.\n\nOnly image files are supported.', {
+      title: 'Invalid File Type',
+      icon: '⚠️'
+    })
+    return
+  }
+  
+  // Clean up old blob URL
   if (imagePreviewUrl.value && imagePreviewUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(imagePreviewUrl.value)
   }
+  
   selectedImageFile.value = file
   imagePreviewUrl.value = URL.createObjectURL(file)
 }
 
-const confirmAddImage = () => {
+const handleDragEnter = (e) => {
+  isDraggingOver.value = true
+}
+
+const handleDragOver = (e) => {
+  isDraggingOver.value = true
+}
+
+const handleDragLeave = (e) => {
+  // Only set to false if we're leaving the upload area itself
+  if (e.target.classList.contains('upload-area')) {
+    isDraggingOver.value = false
+  }
+}
+
+const handleDrop = (e) => {
+  isDraggingOver.value = false
+  
+  const files = e.dataTransfer?.files
+  if (!files || files.length === 0) return
+  
+  const file = files[0]
+  processImageFile(file)
+}
+
+const confirmAddImage = async () => {
   if (imageSourceTab.value === 'url') {
     const url = imageUrl.value.trim()
     if (!url) {
-      alert('⚠️ Please enter a valid image URL!')
+      await dialog.warning('Please enter a valid image URL.\n\nThe URL must start with http:// or https://', {
+        title: 'URL Required',
+        icon: '⚠️'
+      })
       return
     }
     try {
@@ -925,23 +1292,86 @@ const confirmAddImage = () => {
       else if (imageType.value === 'float') store.addFloatImageBlock(url, 'url')
       closeImageModal()
     } catch (error) {
-      alert('⚠️ Please enter a valid URL!')
+      await dialog.warning('Please enter a valid URL.\n\nThe URL must start with http:// or https://', {
+        title: 'Invalid URL',
+        icon: '⚠️'
+      })
       return
     }
   } else if (imageSourceTab.value === 'upload') {
     if (!selectedImageFile.value) {
-      alert('⚠️ Please select an image file!')
+      await dialog.warning('Please select an image file.\n\nChoose an image to upload.', {
+        title: 'No File Selected',
+        icon: '⚠️'
+      })
       return
     }
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const dataUrl = e.target.result
-      if (imageType.value === 'normal') store.addImageBlock(dataUrl, 'upload')
-      else if (imageType.value === 'fullwidth') store.addFullWidthImageBlock(dataUrl, 'upload')
-      else if (imageType.value === 'float') store.addFloatImageBlock(dataUrl, 'upload')
-      closeImageModal()
+    
+    try {
+      // Show loading state
+      const originalFileName = selectedImageFile.value.name
+      
+      // Read file as data URL
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const dataUrl = e.target.result
+        
+        try {
+          // Save to local database first (for preview)
+          const response = await fetch('http://localhost:3001/api/images/temp/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              imageData: dataUrl,
+              filename: originalFileName
+            })
+          })
+          
+          if (!response.ok) {
+            throw new Error('Failed to save image to local database')
+          }
+          
+          const result = await response.json()
+          
+          // Use local URL for preview (will be uploaded to GitHub on publish)
+          const localUrl = result.localUrl
+          
+          if (imageType.value === 'normal') store.addImageBlock(localUrl, 'local')
+          else if (imageType.value === 'fullwidth') store.addFullWidthImageBlock(localUrl, 'local')
+          else if (imageType.value === 'float') store.addFloatImageBlock(localUrl, 'local')
+          
+          closeImageModal()
+        } catch (saveError) {
+          console.error('Local save failed:', saveError)
+          await dialog.warning('Failed to save image.\n\nUsing data URL as fallback.', {
+            title: 'Save Warning',
+            icon: '⚠️'
+          })
+          
+          // Fallback: use data URL directly
+          if (imageType.value === 'normal') store.addImageBlock(dataUrl, 'upload')
+          else if (imageType.value === 'fullwidth') store.addFullWidthImageBlock(dataUrl, 'upload')
+          else if (imageType.value === 'float') store.addFloatImageBlock(dataUrl, 'upload')
+          
+          closeImageModal()
+        }
+      }
+      
+      reader.onerror = async () => {
+        await dialog.error('Failed to read image file.\n\nPlease try another file.', {
+          title: 'Read Error'
+        })
+      }
+      
+      reader.readAsDataURL(selectedImageFile.value)
+    } catch (error) {
+      console.error('Image processing error:', error)
+      await dialog.error('Failed to process image.\n\nAn error occurred while processing the image.', {
+        title: 'Processing Error'
+      })
     }
-    reader.readAsDataURL(selectedImageFile.value)
   }
 }
 
@@ -950,7 +1380,10 @@ let isSaving = false;
 const handleSaveToGitHub = async () => {
   if (isSaving) return;
   if (store.sections.length === 0) {
-    alert('⚠️ Please add content before saving!')
+    await dialog.warning('Please add content before saving.\n\nAdd at least one section to your page.', {
+      title: 'No Content',
+      icon: '⚠️'
+    })
     return
   }
   isSaving = true;
@@ -959,34 +1392,148 @@ const handleSaveToGitHub = async () => {
     const configData = await configCheck.json()
     
     if (!configData.configured) {
-      const shouldConfigure = confirm(
-        '⚠️ GitHub Pages is not configured!\n\n' +
-        'You must configure GitHub Pages settings before saving.\n\n' +
-        'Click OK to open Settings.'
+      const shouldConfigure = await dialog.warning(
+        'You must configure GitHub Pages settings before saving.\n\nWould you like to open Settings now?',
+        {
+          title: 'GitHub Not Configured',
+          icon: '⚙️',
+          confirmText: 'Open Settings',
+          cancelText: 'Cancel'
+        }
       )
       if (shouldConfigure) document.dispatchEvent(new CustomEvent('open-settings'))
       isSaving = false;
       return
     }
   } catch (error) {
-    alert('❌ Failed to check GitHub configuration. Please ensure the backend server is running.')
+    await dialog.error('Failed to check GitHub configuration.\n\nPlease ensure the backend server is running.', {
+      title: 'Connection Error'
+    })
     isSaving = false;
     return
   }
   
-  const title = prompt('📝 Enter page title:', 'My Page')
-  if (!title) {
+  // Handle image conflicts - show modal for user to resolve
+  const handleImageConflicts = async (conflicts) => {
+    return new Promise((resolve) => {
+      showConflictModal.value = true
+      conflictImages.value = conflicts
+      conflictResolutions.value = {}
+      
+      // Initialize resolutions with default "overwrite" action
+      conflicts.forEach(conflict => {
+        conflictResolutions.value[conflict.imageId] = {
+          action: 'overwrite',
+          newFilename: conflict.filename,
+          sha: conflict.sha
+        }
+      })
+      
+      // Store resolve callback
+      conflictResolveCallback.value = resolve
+    })
+  }
+  
+  const pageInfo = await promptPageInfo('My Page')
+  if (!pageInfo) {
     isSaving = false;
     return
   }
   
-  const filename = prompt('📄 Enter filename (without .html):', title.replace(/\s+/g, '-').toLowerCase())
-  if (!filename) {
-    isSaving = false;
-    return
-  }
+  const title = pageInfo.title
+  const filename = pageInfo.filename
   
   try {
+    // Step 1: Collect all local image IDs
+    const localImageIds = store.collectLocalImageIds()
+    
+    // Step 2: Upload local images to GitHub if any exist
+    if (localImageIds.length > 0) {
+      try {
+        // First attempt: upload without conflict resolution
+        let uploadResponse = await fetch('http://localhost:3001/api/images/temp/upload-to-github', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageIds: localImageIds })
+        })
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload images to GitHub')
+        }
+        
+        let uploadResult = await uploadResponse.json()
+        
+        // Handle conflicts if any
+        if (uploadResult.results.conflicts && uploadResult.results.conflicts.length > 0) {
+          const conflictResolutions = await handleImageConflicts(uploadResult.results.conflicts)
+          
+          if (!conflictResolutions) {
+            // User cancelled
+            isSaving = false
+            return
+          }
+          
+          // Retry upload with conflict resolutions
+          uploadResponse = await fetch('http://localhost:3001/api/images/temp/upload-to-github', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              imageIds: localImageIds,
+              conflictResolutions: conflictResolutions
+            })
+          })
+          
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload images to GitHub after conflict resolution')
+          }
+          
+          uploadResult = await uploadResponse.json()
+        }
+        
+        // Step 3: Replace local URLs with GitHub URLs
+        if (uploadResult.results.success && uploadResult.results.success.length > 0) {
+          const urlMapping = {}
+          uploadResult.results.success.forEach(item => {
+            urlMapping[item.imageId] = item.githubUrl
+          })
+          
+          store.replaceLocalUrls(urlMapping)
+        }
+        
+        if (uploadResult.failed && uploadResult.failed.length > 0) {
+          const proceed = await dialog.warning(
+            `${uploadResult.failed.length} image(s) failed to upload to GitHub.\n\nThese images may not display correctly on the published page.\n\nDo you want to continue saving?`,
+            {
+              title: 'Image Upload Failed',
+              icon: '⚠️',
+              confirmText: 'Continue Anyway',
+              cancelText: 'Cancel'
+            }
+          )
+          if (!proceed) {
+            isSaving = false
+            return
+          }
+        }
+      } catch (uploadError) {
+        console.error('Image upload error:', uploadError)
+        const proceed = await dialog.warning(
+          'Failed to upload images to GitHub.\n\nImages may not display correctly on the published page.\n\nDo you want to continue saving anyway?',
+          {
+            title: 'Upload Error',
+            icon: '⚠️',
+            confirmText: 'Continue Anyway',
+            cancelText: 'Cancel'
+          }
+        )
+        if (!proceed) {
+          isSaving = false
+          return
+        }
+      }
+    }
+    
+    // Step 4: Generate HTML and save to database + GitHub
     const htmlContent = await store.exportToHTML()
     const sectionsData = await store.prepareSectionsForSave()
     const previewImage = await store.generatePreviewImage()
@@ -1009,21 +1556,34 @@ const handleSaveToGitHub = async () => {
       if (data.github_url) {
         const fullUrl = buildGitHubUrl(data.github_url);
         if (fullUrl) {
-          alert(`✅ Successfully saved to GitHub Pages!\n\n🌐 URL: ${fullUrl}\n\n📋 The URL has been copied to your clipboard.`)
+          await dialog.success(`"${title}" is now live on GitHub Pages!\n\n${fullUrl}\n\nURL has been copied to your clipboard.`, {
+            title: '🎉 Page Published Successfully!',
+            icon: '🎉'
+          })
           navigator.clipboard.writeText(fullUrl).catch(() => {})
         } else {
-          alert('✅ Saved to database, but GitHub Pages URL is not available.')
+          await dialog.success(`"${title}" has been saved to your database.\n\nGitHub Pages URL will be available shortly.`, {
+            title: 'Page Saved Successfully!',
+            icon: '✅'
+          })
         }
       } else {
-        alert('✅ Saved to database, but GitHub Pages URL is not available.')
+        await dialog.success(`"${title}" has been saved to your database.\n\nGitHub Pages URL will be available shortly.`, {
+          title: 'Page Saved Successfully!',
+          icon: '✅'
+        })
       }
     } else {
       const error = await response.json()
-      alert(`❌ Save failed: ${error.error}`)
+      await dialog.error(error.error || 'An unexpected error occurred. Please try again.', {
+        title: 'Failed to Save Page'
+      })
     }
   } catch (error) {
     console.error('Save to GitHub error:', error)
-    alert('❌ Save failed. Please ensure the backend server is running.')
+    await dialog.error('Unable to reach the server.\n\nPlease ensure the backend is running and try again.', {
+      title: 'Connection Error'
+    })
   } finally {
     isSaving = false;
   }
@@ -1055,62 +1615,80 @@ const handleSaveToGitHub = async () => {
 .btns {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .btn {
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid #d8c3c3;
+  padding: 12px 16px;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
-  background-color: #f7e6e6;
+  background-color: #ffffff;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 600;
-  transition: background-color 0.2s, transform 0.1s;
+  font-weight: 500;
+  color: #333;
+  transition: all 0.2s ease;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.btn:hover {
-  background-color: #f0d4d4;
+.btn:hover:not(:disabled) {
+  background-color: #f8f9fa;
+  border-color: #d0d0d0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
-.btn:active {
-  transform: scale(0.98);
+.btn:active:not(:disabled) {
+  background-color: #f0f0f0;
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  color: #999;
 }
 
+/* Parallax Button */
+.btn-parallax {
+  background: linear-gradient(135deg, #fff9f0 0%, #fff5e6 100%);
+  border-color: #ffe4b3;
+  color: #b8860b;
+}
+
+.btn-parallax:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fff5e6 0%, #ffefd5 100%);
+  border-color: #ffd699;
+  box-shadow: 0 2px 6px rgba(255, 215, 0, 0.15);
+}
+
+/* Storage Button */
 .btn-storage {
-  background-color: #e4d4f1;
-  border-color: #d0b8e8;
-  color: #5e1e5e;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e6f4ff 100%);
+  border-color: #b3d9ff;
+  color: #1e5a8e;
 }
 
-.btn-storage:hover {
-  background-color: #d8c0e8;
+.btn-storage:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e6f4ff 0%, #d6edff 100%);
+  border-color: #99c9ff;
+  box-shadow: 0 2px 6px rgba(79, 172, 254, 0.15);
 }
 
-.btn-github {
-  background-color: #ffd4e4;
-  border-color: #ffb8d0;
-  color: #5e1e3a;
-}
-
-.btn-github:hover {
-  background-color: #ffc0d8;
-}
-
+/* Settings Button */
 .btn-settings {
-  background-color: #e8e8e8;
-  border-color: #d0d0d0;
-  color: #333;
+  background: linear-gradient(135deg, #f8f8f8 0%, #f0f0f0 100%);
+  border-color: #d5d5d5;
+  color: #555;
 }
 
-.btn-settings:hover {
-  background-color: #d8d8d8;
+.btn-settings:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+  border-color: #c0c0c0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 
@@ -1435,20 +2013,21 @@ const handleSaveToGitHub = async () => {
   line-height: 1.6;
 }
 
-/* Video Modal Styles */
+/* ===== Modal Base Styles ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  animation: fadeIn 0.2s ease;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
@@ -1463,121 +2042,79 @@ const handleSaveToGitHub = async () => {
 .modal-container {
   background: white;
   border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  width: 90%;
-  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 600px;
   max-height: 90vh;
   overflow: hidden;
-  animation: slideUp 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes slideUp {
   from {
-    transform: translateY(20px);
+    transform: translateY(30px) scale(0.95);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
 
 .modal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: linear-gradient(to bottom, #f9fafb, #ffffff);
+  padding: 24px 28px;
+  border-bottom: 2px solid #f3f4f6;
+  background: white;
+  gap: 16px;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
   color: #111827;
 }
 
+.modal-subtitle {
+  margin: 6px 0 0 0;
+  font-size: 14px;
+  font-weight: normal;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
 .modal-close {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 8px;
   background: transparent;
   font-size: 28px;
   line-height: 1;
-  color: #6b7280;
+  color: #9ca3af;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .modal-close:hover {
   background: #f3f4f6;
   color: #111827;
+  transform: rotate(90deg);
 }
 
 .modal-body {
-  padding: 24px;
-}
-
-.modal-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.modal-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e5e7eb;
-  border-radius: 10px;
-  font-size: 15px;
-  color: #111827;
-  transition: all 0.2s ease;
-  box-sizing: border-box;
-}
-
-.modal-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.modal-input::placeholder {
-  color: #9ca3af;
-}
-
-.modal-hint {
-  margin-top: 16px;
-  padding: 12px 16px;
-  background: #f0f9ff;
-  border-left: 3px solid #3b82f6;
-  border-radius: 8px;
-}
-
-.modal-hint p {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1e40af;
-}
-
-.modal-hint ul {
-  margin: 0;
-  padding-left: 20px;
-  list-style-type: disc;
-}
-
-.modal-hint li {
-  margin: 4px 0;
-  font-size: 12px;
-  color: #1e40af;
-  font-family: 'Courier New', monospace;
+  flex: 1;
+  padding: 24px 28px;
+  overflow-y: auto;
 }
 
 .modal-footer {
@@ -1585,46 +2122,218 @@ const handleSaveToGitHub = async () => {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  padding: 20px 28px;
+  border-top: 2px solid #f3f4f6;
+  background: #fafafa;
 }
 
 .modal-btn {
-  padding: 10px 20px;
+  padding: 12px 24px;
   border: none;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .modal-btn-cancel {
   background: white;
-  border: 1px solid #d1d5db;
+  border: 2px solid #e5e7eb;
   color: #374151;
 }
 
 .modal-btn-cancel:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 .modal-btn-confirm {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-.modal-btn-confirm:hover {
+.modal-btn-confirm:hover:not(:disabled) {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.4);
-  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
 }
 
-.modal-btn-confirm:active {
+.modal-btn-confirm:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.modal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #9ca3af !important;
+  box-shadow: none !important;
+}
+
+/* ===== Video Modal Specific Styles ===== */
+.video-modal {
+  max-width: 650px;
+}
+
+/* ===== Image Modal Specific Styles ===== */
+.image-modal {
+  max-width: 650px;
+}
+
+.header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+}
+
+.header-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.form-section {
+  margin-bottom: 24px;
+}
+
+.modal-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.label-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #111827;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.modal-input::placeholder {
+  color: #9ca3af;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Info Section */
+.info-section {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #bae6fd;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #7dd3fc;
+}
+
+.info-icon {
+  font-size: 18px;
+  line-height: 1;
+  animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.info-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #075985;
+}
+
+.format-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.format-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #bae6fd;
+  transition: all 0.2s ease;
+}
+
+.format-item:hover {
+  border-color: #7dd3fc;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.15);
+  transform: translateX(4px);
+}
+
+.format-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.format-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.format-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0c4a6e;
+  margin-bottom: 3px;
+}
+
+.format-example {
+  font-size: 11px;
+  color: #0369a1;
+  font-family: 'Monaco', 'Courier New', monospace;
+  word-break: break-all;
+  background: rgba(224, 242, 254, 0.5);
+  padding: 3px 6px;
+  border-radius: 4px;
+  display: inline-block;
 }
 
 /* Image Modal Tab Styles */
@@ -1734,6 +2443,14 @@ const handleSaveToGitHub = async () => {
   background: #eff6ff;
 }
 
+.upload-area.drag-over {
+  border-color: #2563eb;
+  background: #dbeafe;
+  border-width: 3px;
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+}
+
 .upload-placeholder {
   display: flex;
   flex-direction: column;
@@ -1796,5 +2513,310 @@ const handleSaveToGitHub = async () => {
 .change-file-btn:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
+}
+
+/* ===== Conflict Resolution Modal ===== */
+.conflict-modal {
+  max-width: 700px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.conflict-header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+}
+
+.conflict-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.modal-subtitle {
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  font-weight: normal;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.conflict-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Conflict Item Card */
+.conflict-item {
+  padding: 20px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.conflict-item:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+}
+
+.conflict-item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.conflict-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+.conflict-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.conflict-filename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.file-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.filename-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  font-family: 'Monaco', 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.conflict-path {
+  font-size: 12px;
+  color: #6b7280;
+  font-family: 'Monaco', 'Courier New', monospace;
+  background: #f9fafb;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+/* Action Options */
+.conflict-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-option {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.conflict-action-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fafafa;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.conflict-action-label:hover {
+  background: #f5f5f5;
+  border-color: #d1d5db;
+}
+
+.conflict-action-label.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.conflict-action-label input[type="radio"] {
+  margin-top: 3px;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: #3b82f6;
+}
+
+.action-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.overwrite-icon {
+  filter: grayscale(0.3);
+}
+
+.rename-icon {
+  filter: grayscale(0.3);
+}
+
+.conflict-action-label.active .action-icon {
+  filter: grayscale(0);
+  animation: icon-bounce 0.5s ease;
+}
+
+@keyframes icon-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.action-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  user-select: none;
+}
+
+.action-description {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+  user-select: none;
+}
+
+/* Rename Input Container */
+.rename-input-container {
+  margin-left: 30px;
+  padding-left: 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rename-input {
+  padding: 10px 12px;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  width: 100%;
+  box-sizing: border-box;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.rename-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.rename-input::placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.input-hint {
+  font-size: 11px;
+  color: #6b7280;
+  font-style: italic;
+  padding-left: 4px;
+}
+
+/* Modal Footer Enhanced */
+.modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 2px solid #f3f4f6;
+}
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.info-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.info-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #9ca3af !important;
+}
+
+.modal-btn:disabled:hover {
+  background: #9ca3af !important;
+  transform: none;
 }
 </style>

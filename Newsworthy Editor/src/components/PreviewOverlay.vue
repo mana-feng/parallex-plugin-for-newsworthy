@@ -1,29 +1,19 @@
 <template>
-    <!-- fullscream preview overlay -->
     <div class="preview-mask" @click.self="$emit('exit')">
         <div class="toolbar">
-            <!-- exit buttom -->
             <button @click="$emit('exit')">Exit</button>
-
-            <!-- device type -->
             <select v-model="selectedId">
                 <option v-for="d in store.devices" :key="d.id" :value="d.id">{{ d.name }}</option>
             </select>
-
-            <!-- output html file -->
             <button @click="exportHtml">Output HTML</button>
         </div>
 
-        <!-- preview area -->
         <div class="viewport">
             <div class="device-shell" :style="shellStyle">
                 <iframe class="device-iframe" :srcdoc="htmlForIframe"
                     sandbox="allow-scripts allow-same-origin allow-popups allow-forms" />
             </div>
         </div>
-
-
-
     </div>
 </template>
 
@@ -31,7 +21,6 @@
 import { computed } from 'vue'
 import { useEditorStore } from '@/stores/editorStore'
 
-// receive html string to display in iframe
 const props = defineProps({
     html: { type: String, required: true },
 })
@@ -43,13 +32,12 @@ const selectedId = computed({
     set: (id) => store.selectDevice(id)
 })
 
-// control max text width in different device
 const htmlForIframe = computed(() => {
     const mode = store.currentDevice.mode
     const caps = {
-        pc: '65ch',
-        tablet: '45ch',
-        mobile: '30ch',
+        pc: '75ch',
+        tablet: '55ch',
+        mobile: '100%',
     }
     const css = `:root{ --device-text-max: ${caps[mode] || '65ch'}; }`
     return props.html.includes('</head>')
@@ -57,7 +45,6 @@ const htmlForIframe = computed(() => {
         : `<style id="device-overrides">${css}</style>` + props.html
 })
 
-// desktop:fullscreen; tablet pc/mobile: fixed width, full height
 const shellStyle = computed(() => {
     const { w, mode } = store.currentDevice
     if (mode === 'pc') {
@@ -83,21 +70,13 @@ const shellStyle = computed(() => {
 })
 
 function exportHtml() {
-  // Get current html
   const content = props.html
-
-  // Using Blob to treat content as html file
   const blob = new Blob([content], { type: 'text/html' })
-
-  // Generate download link
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  // Output file name
   a.download = 'preview.html'
   a.click()
-
-  // Release resource
   URL.revokeObjectURL(url)
 }
 

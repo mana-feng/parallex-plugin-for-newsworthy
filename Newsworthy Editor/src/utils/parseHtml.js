@@ -1,13 +1,10 @@
-// Parses HTML content and converts it back to sections data structure
 export function parseHtmlToSections(htmlContent) {
   try {
-    // Create a temporary DOM parser
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
     
     const sections = [];
     
-    // Find all section elements - try both .section-block and .section
     let sectionElements = doc.querySelectorAll('.section-block');
     if (sectionElements.length === 0) {
       sectionElements = doc.querySelectorAll('.section');
@@ -28,10 +25,8 @@ export function parseHtmlToSections(htmlContent) {
         }
       };
       
-      // Parse section styles
       const sectionStyle = sectionEl.getAttribute('style') || '';
       
-      // Extract background
       if (sectionStyle.includes('background-image')) {
         const bgImgMatch = sectionStyle.match(/background-image:\s*url\(['"]?([^'")\s]+)['"]?\)/);
         if (bgImgMatch) {
@@ -45,17 +40,14 @@ export function parseHtmlToSections(htmlContent) {
         }
       }
       
-      // Extract height
       const heightMatch = sectionStyle.match(/min-height:\s*(\d+)px/);
       if (heightMatch) {
         section.props.height = parseInt(heightMatch[1], 10);
       }
       
-      // Parse blocks within section
       const blockWrappers = sectionEl.querySelectorAll('.block-wrapper');
       
       blockWrappers.forEach((wrapper, blockIndex) => {
-        // Check for text blocks
         const textWrapper = wrapper.querySelector('.text-wrapper');
         if (textWrapper) {
           const prose = textWrapper.querySelector('.prose');
@@ -69,7 +61,6 @@ export function parseHtmlToSections(htmlContent) {
             }
           };
           
-          // Try to extract width from style
           const wrapperStyle = textWrapper.getAttribute('style') || '';
           const widthMatch = wrapperStyle.match(/--block-max:\s*([^;]+)/);
           if (widthMatch) {
@@ -79,7 +70,6 @@ export function parseHtmlToSections(htmlContent) {
           section.blocks.push(block);
         }
         
-        // Check for image blocks
         const imageBlock = wrapper.querySelector('.image-block');
         if (imageBlock) {
           const img = imageBlock.querySelector('img');
@@ -87,7 +77,6 @@ export function parseHtmlToSections(htmlContent) {
             const imgStyle = img.getAttribute('style') || '';
             const src = img.getAttribute('src') || '';
             
-            // Extract dimensions
             const widthMatch = imgStyle.match(/width:\s*(\d+)px/);
             const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
             const objectFit = imgStyle.includes('object-fit:contain');
@@ -117,7 +106,6 @@ export function parseHtmlToSections(htmlContent) {
           }
         }
         
-        // Check for fullwidth-image blocks
         const fullwidthImageBlock = wrapper.querySelector('.fullwidth-image-block');
         if (fullwidthImageBlock) {
           const img = fullwidthImageBlock.querySelector('img');
@@ -126,7 +114,6 @@ export function parseHtmlToSections(htmlContent) {
             const src = img.getAttribute('src') || '';
             const caption = fullwidthImageBlock.querySelector('.image-caption');
             
-            // Extract mode and height
             const isCover = imgStyle.includes('object-fit:cover');
             const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
             
@@ -148,7 +135,6 @@ export function parseHtmlToSections(htmlContent) {
           }
         }
         
-        // Check for float-image blocks
         const floatImageContainer = wrapper.querySelector('.float-image-container');
         if (floatImageContainer) {
           const floatImageBlock = floatImageContainer.querySelector('.float-image-block');
@@ -161,12 +147,10 @@ export function parseHtmlToSections(htmlContent) {
               const caption = floatImageBlock.querySelector('.image-caption');
               const blockStyle = floatImageBlock.getAttribute('style') || '';
               
-              // Extract width and alignment
               const widthMatch = blockStyle.match(/width:\s*(\d+)%/);
               const widthPercent = widthMatch ? parseInt(widthMatch[1], 10) : 45;
               const align = blockStyle.includes('order:1') ? 'left' : 'right';
               
-              // Get text content
               const prose = floatTextContent ? floatTextContent.querySelector('.prose') : null;
               const text = prose ? prose.innerHTML : '<p></p>';
               
@@ -193,10 +177,8 @@ export function parseHtmlToSections(htmlContent) {
         }
       });
       
-      // Also check for standalone text and image blocks (different HTML structure)
       const textBlocks = sectionEl.querySelectorAll('.text-block');
       textBlocks.forEach((textEl, blockIndex) => {
-        // Skip if already processed
         if (textEl.closest('.block-wrapper')) return;
         
         const block = {
@@ -220,7 +202,6 @@ export function parseHtmlToSections(htmlContent) {
       
       const imageBlocks = sectionEl.querySelectorAll('figure.image-block');
       imageBlocks.forEach((figureEl, blockIndex) => {
-        // Skip if already processed
         if (figureEl.closest('.block-wrapper')) return;
         
         const img = figureEl.querySelector('img');
@@ -257,7 +238,6 @@ export function parseHtmlToSections(htmlContent) {
         }
       });
       
-      // Check for video blocks
       const videoBlocks = sectionEl.querySelectorAll('.video-block');
       videoBlocks.forEach((videoEl, blockIndex) => {
         const iframe = videoEl.querySelector('iframe');
@@ -266,7 +246,6 @@ export function parseHtmlToSections(htmlContent) {
           const width = iframe.getAttribute('width') || '560';
           const height = iframe.getAttribute('height') || '315';
           
-          // Extract video ID from YouTube embed URL
           const videoIdMatch = src.match(/(?:youtube\.com\/embed\/|youtube-nocookie\.com\/embed\/)([^?&]+)/);
           const videoId = videoIdMatch ? videoIdMatch[1] : '';
           
@@ -297,11 +276,9 @@ export function parseHtmlToSections(htmlContent) {
   }
 }
 
-// Check if HTML content appears to be from this editor (has expected structure)
 export function isEditableHtml(htmlContent) {
   if (!htmlContent) return false;
   
-  // Check for common patterns that indicate this HTML was generated by our editor
   const hasExpectedStructure = 
     htmlContent.includes('section') ||
     htmlContent.includes('canvas-area') ||

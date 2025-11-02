@@ -2,6 +2,20 @@
 
 An immersive long-form multimedia article editor for creating visually rich, scrollable web stories. Design magazine-quality articles with sections, text, images, and videos, then publish directly to GitHub Pages.
 
+> **中文文档**: 查看 [README-CN.md](README-CN.md) 获取完整的中文使用指南
+
+---
+
+## 📋 Table of Contents
+
+1. [Quick Start](#-quick-start)
+2. [Features](#-features)
+3. [How to Use](#-how-to-use)
+4. [Server Management](#-server-management)
+5. [FAQ](#-faq)
+6. [Troubleshooting](#-troubleshooting)
+7. [Best Practices](#-best-practices)
+
 ---
 
 ## ✨ Features
@@ -314,26 +328,65 @@ Manage all your articles:
 
 ---
 
-## 📂 Project Structure
+## 🔧 Server Management
+
+### Project Structure
 
 ```
-capstone-project-25t3-9900-h18e-almond-functions/
-├── Newsworthy Editor/           # Main application
-│   ├── src/                     # Frontend source code
-│   │   ├── components/          # Vue components
-│   │   ├── stores/              # Pinia state management
-│   │   └── utils/               # Utility functions
-│   ├── backend/                 # Backend API server
-│   │   ├── server.js            # Express server
-│   │   ├── database.js          # SQLite operations
-│   │   ├── github.js            # GitHub API integration
-│   │   ├── config-store.js      # Settings storage
-│   │   ├── crypto-utils.js      # Token encryption
-│   │   └── database.sqlite      # Local data storage
-│   └── public/                  # Static assets
-├── start-servers.bat            # Windows startup script
-├── start-servers.sh             # macOS/Linux startup script
-└── README.md                    # This file
+Newsworthy Editor/
+├── backend/              # Backend server
+│   ├── server.js        # Main server file
+│   ├── database.js      # Database operations
+│   ├── github.js        # GitHub integration
+│   ├── config-store.js  # Settings storage
+│   ├── crypto-utils.js  # Token encryption
+│   └── database.sqlite  # Local data storage
+├── src/                 # Frontend source code
+│   ├── components/      # Vue components
+│   ├── stores/          # Pinia state management
+│   ├── utils/           # Utility functions
+│   └── config/          # Configuration files
+│       └── api.js       # API configuration (port settings)
+└── public/              # Static assets
+```
+
+### Port Configuration
+
+#### API Port Configuration
+```javascript
+// File: Newsworthy Editor/src/config/api.js
+const API_PORT = 3001;  // Change this to switch ports
+
+export const API_BASE_URL = `http://localhost:${API_PORT}/api`;
+```
+
+#### Backend Port Configuration
+```javascript
+// File: Newsworthy Editor/backend/server.js
+const PORT = process.env.PORT || 3001;
+```
+
+Or use environment variables:
+```bash
+set PORT=3002
+node "Newsworthy Editor/backend/server.js"
+```
+
+### Common Commands
+
+#### Frontend Development
+```bash
+cd "Newsworthy Editor"
+npm run dev      # Start development server
+npm run build    # Build for production
+npm run preview  # Preview production build
+npm run lint     # Run linter
+```
+
+#### Backend Development
+```bash
+cd "Newsworthy Editor/backend"
+node server.js   # Start server
 ```
 
 ---
@@ -352,9 +405,139 @@ capstone-project-25t3-9900-h18e-almond-functions/
 - **Octokit** - GitHub REST API client
 - **Multer** - File upload handling
 
+### Database Configuration
+
+#### SQLite Journal Modes
+
+The backend uses SQLite with **WAL (Write-Ahead Logging)** mode by default. This configuration affects how database files are managed:
+
+**WAL Mode (Current Default)** ✅
+```
+backend/
+├── database.sqlite       # Main database file
+├── database.sqlite-shm   # Shared memory file (temporary)
+└── database.sqlite-wal   # Write-ahead log file (temporary)
+```
+
+**Benefits:**
+- ✅ Better performance for concurrent operations
+- ✅ Improved write performance
+- ✅ Readers don't block writers
+- ✅ Ideal for multi-user scenarios
+
+**Considerations:**
+- ⚠️ Creates 3 files instead of 1
+- ⚠️ Requires checkpoint operation before backup
+- ⚠️ `.shm` and `.wal` files are temporary and auto-managed
+
+**DELETE Mode (Alternative)**
+
+If you prefer a single database file, you can switch to DELETE mode:
+
+```javascript
+// File: Newsworthy Editor/backend/database.js (line 25)
+db.pragma('journal_mode = DELETE');  // Change from WAL to DELETE
+```
+
+```
+backend/
+└── database.sqlite       # Single file only
+```
+
+**Benefits:**
+- ✅ Only one database file
+- ✅ Simpler file management
+- ✅ Easier to backup (just copy the file)
+- ✅ Sufficient for single-user applications
+
+**Trade-offs:**
+- ⚠️ Slightly lower performance under high concurrency
+- ⚠️ Writers block readers during transactions
+
+**Which Mode to Choose?**
+
+| Scenario | Recommended Mode |
+|----------|------------------|
+| Single-user editor (typical use) | DELETE ✅ |
+| Multiple concurrent users | WAL ✅ |
+| Need simple backups | DELETE ✅ |
+| High-performance requirements | WAL ✅ |
+| Minimal file management | DELETE ✅ |
+
+**Switching Between Modes:**
+
+1. Stop the backend server
+2. Delete temporary files (if switching from WAL):
+   ```bash
+   # Windows
+   del "Newsworthy Editor\backend\database.sqlite-shm"
+   del "Newsworthy Editor\backend\database.sqlite-wal"
+   
+   # macOS/Linux
+   rm "Newsworthy Editor/backend/database.sqlite-shm"
+   rm "Newsworthy Editor/backend/database.sqlite-wal"
+   ```
+3. Edit `database.js` line 25 to change the mode
+4. Restart the backend server
+
+**Note:** For most users, the default WAL mode provides the best balance of performance and reliability. Only switch to DELETE mode if you specifically need simpler file management.
+
 ---
 
 ## ❓ FAQ
+
+### Port Conflicts
+
+**Q: Getting `EADDRINUSE` error (port already in use)?**
+
+**A:** Solutions:
+
+| Solution | Action | Time | Difficulty |
+|----------|--------|------|------------|
+| Wait for release | Wait 2-5 minutes and retry | 2-5 min | ⭐ |
+| Restart computer | Restart your computer | 5-10 min | ⭐ |
+
+**Q: Why is the port still in use after running the stop script?**
+
+**A:** This is normal Windows behavior:
+- The process is terminated, but the port is in TIME_WAIT state
+- Wait 30-120 seconds for the system to automatically release it
+- Or restart your computer to immediately release all ports
+
+**Q: How to check if a port is in use?**
+
+**A:** Run this command:
+```bash
+netstat -ano | findstr :3001
+```
+If there's output, the port is in use.
+
+**Q: How to find which process is using a port?**
+
+**A:**
+```bash
+# Find process using port 3001
+netstat -ano | findstr :3001
+
+# Example output:
+# TCP    0.0.0.0:3001    0.0.0.0:0    LISTENING    12345
+#                                                   ^^^^^ This is the Process ID
+
+# View process details
+tasklist /FI "PID eq 12345"
+```
+
+**Q: How to manually kill a process?**
+
+**A:**
+```bash
+taskkill /F /PID 12345
+```
+Replace `12345` with the actual process ID.
+
+---
+
+## ❓ FAQ (Continued)
 
 ### Publishing & GitHub
 
@@ -387,8 +570,13 @@ A: Currently only YouTube videos. Supported URL formats:
 
 ### Technical
 
-**Q: Port already in use?**  
-A: The startup script will automatically detect port conflicts. You can manually kill the process or let Vite use an alternative port.
+**Q: Frontend can't connect to backend?**
+
+**A:** Check the following:
+1. Is the backend running?
+2. Is the port in `src/config/api.js` correct?
+3. Are there any errors in the browser console?
+4. Is your firewall blocking the connection?
 
 **Q: How to backup my content?**  
 A: Content is automatically saved in two places:
@@ -397,6 +585,109 @@ A: Content is automatically saved in two places:
 
 **Q: Can I use this without GitHub?**  
 A: Yes, you can use the editor and save locally. However, publishing and sharing features require GitHub integration.
+
+**Q: Database errors?**
+
+**A:**
+```bash
+# 1. Check database file
+dir "Newsworthy Editor\backend\database.sqlite"
+
+# 2. If file is corrupted, delete and recreate
+del "Newsworthy Editor\backend\database.sqlite"
+cd "Newsworthy Editor\backend"
+node server.js  # Will automatically create new database
+```
+
+---
+
+## 🔍 Troubleshooting
+
+### Scenario 1: Port Already in Use
+
+```bash
+# 1. Check port status
+netstat -ano | findstr :3001
+
+# 2. Try stopping
+Double-click: stop-servers.bat
+
+# 3. Wait for port release
+Wait 2-5 minutes
+
+# 4. If still not working, restart computer
+```
+
+### Scenario 2: Process Won't Terminate
+
+```bash
+# Most thorough solution: restart computer
+```
+
+### Scenario 3: Database Error
+
+```bash
+# 1. Check database file
+dir "Newsworthy Editor\backend\database.sqlite"
+
+# 2. If file is corrupted, delete and recreate
+del "Newsworthy Editor\backend\database.sqlite"
+cd "Newsworthy Editor\backend"
+node server.js  # Will automatically create new database
+```
+
+---
+
+## 💡 Best Practices
+
+1. ✅ **Always use scripts to start/stop servers**
+   - Use `start-servers.bat`/`start-servers.sh` to start
+   - Use `stop-servers.bat`/`stop-servers.sh` to stop
+   - Don't directly close command line windows
+
+2. ✅ **Check documentation first when encountering issues**
+   - Review the FAQ section in this document
+   - Check browser console for error messages
+
+3. ✅ **Use configuration files to manage ports**
+   - Modify `src/config/api.js` instead of hardcoding
+
+4. ✅ **Regular cleanup**
+   - Stop servers at the end of each day
+   - Avoid accumulation of zombie processes
+
+5. ✅ **Regular backups**
+   - Backup `backend/database.sqlite` file
+   - Regularly push to GitHub
+
+---
+
+## 🎯 Recommended Workflow
+
+### During Development
+
+```bash
+# 1. Start servers (first time each day)
+Double-click: start-servers.bat (Windows)
+Or run: ./start-servers.sh (macOS/Linux)
+
+# 2. Develop...
+
+# 3. Stop servers (end of day)
+Double-click: stop-servers.bat (Windows)
+Or run: ./stop-servers.sh (macOS/Linux)
+```
+
+### When Encountering Port Conflicts
+
+```bash
+# Option 1: Wait for port release
+Wait 2-5 minutes
+Re-run startup script
+
+# Option 2: Restart computer
+Restart and then start servers
+```
 
 ---
 
@@ -408,6 +699,13 @@ A: Yes, you can use the editor and save locally. However, publishing and sharing
 - ⚠️ **Token Safety**: Never share your GitHub token with anyone
 - ⚠️ **Token Leaked?**: Immediately revoke it on GitHub and generate a new one
 - 🔄 **Regular Updates**: Update your GitHub token periodically for security
+
+---
+
+## 📚 Related Documentation
+
+- **Chinese Documentation**: `README-CN.md`
+- **Project Root**: Contains startup scripts and configuration files
 
 ---
 
@@ -426,6 +724,6 @@ This is an academic project. For issues or suggestions:
 
 ---
 
-**Last Updated**: October 28, 2025  
+**Last Updated**: November 2, 2025  
 **Version**: 0.0.0  
 **Course**: COMP9900

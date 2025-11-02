@@ -1,6 +1,14 @@
 <template>
   <main class="canvas-area" ref="canvasRef" @click="store.notSelected">
-    <div v-for="section in store.sections" :key="section.id" class="section-block"
+    <template v-for="section in store.sections" :key="section.id">
+      <!-- Parallax Section -->
+      <ParallaxSection 
+        v-if="section.type === 'parallax'" 
+        :section="section" 
+      />
+      
+      <!-- Normal Section -->
+      <div v-else class="section-block"
       :class="{ 'checked': store.selected?.type === 'section' && store.selected?.sectionId === section.id }"
       :style="sectionStyle(section.props)" @click.stop="store.selectSection(section.id)">
       <div v-for="blk in section.blocks" :key="blk.id" class="block-wrapper"
@@ -133,6 +141,7 @@
         </div>
       </div>
     </div>
+    </template>
   </main>
 </template>
 
@@ -144,11 +153,12 @@ import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { Extension } from '@tiptap/vue-3';
+import ParallaxSection from './ParallaxSection.vue'
 
 const store = useEditorStore()
 const canvasRef = ref(null)
 
-// TipTap
+// TipTap Extensions
 const FontSize = Extension.create({
   name: 'fontSize',
   addGlobalAttributes() {

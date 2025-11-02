@@ -23,3 +23,6 @@ Thumbs.db
 dist/
 dist-ssr/
 
+# SQLite temporary files
+*.sqlite-shm
+*.sqlite-wal

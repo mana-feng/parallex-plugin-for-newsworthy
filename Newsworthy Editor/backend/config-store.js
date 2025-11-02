@@ -8,7 +8,6 @@ const __dirname = path.dirname(__filename);
 
 const db = new Database(path.join(__dirname, 'database.sqlite'));
 
-// Create settings table if it doesn't exist
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
@@ -18,14 +17,12 @@ db.exec(`
 `);
 
 export const configStore = {
-  // Get a setting by key
   get: (key) => {
     const stmt = db.prepare('SELECT value FROM settings WHERE key = ?');
     const row = stmt.get(key);
     return row ? JSON.parse(row.value) : null;
   },
 
-  // Set a setting
   set: (key, value) => {
     const stmt = db.prepare(`
       INSERT INTO settings (key, value, updated_at) 
@@ -37,13 +34,11 @@ export const configStore = {
     stmt.run(key, JSON.stringify(value));
   },
 
-  // Delete a setting
   delete: (key) => {
     const stmt = db.prepare('DELETE FROM settings WHERE key = ?');
     stmt.run(key);
   },
 
-  // Get all settings
   getAll: () => {
     const stmt = db.prepare('SELECT key, value FROM settings');
     const rows = stmt.all();
@@ -55,7 +50,6 @@ export const configStore = {
   }
 };
 
-// GitHub configuration helpers
 export const githubConfig = {
   get: () => {
     return configStore.get('github_config');
@@ -64,7 +58,7 @@ export const githubConfig = {
   set: (config) => {
     if (config.token) {
       if (!isEncrypted(config.token)) {
-        console.log('🔐 Encrypting GitHub token...');
+        console.log('Encrypting GitHub token...');
         config.token = encrypt(config.token);
       }
     }

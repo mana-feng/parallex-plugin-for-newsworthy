@@ -17,10 +17,8 @@
     "@tiptap/extension-color": "^3.7.1",
     "@tiptap/extension-text-align": "^3.7.0",
     "@tiptap/extension-text-style": "^3.7.1",
-    "@tiptap/extension-link": "^3.8.0",
     "@tiptap/starter-kit": "^3.8.0",
     "@tiptap/vue-3": "^3.8.0",
-    "crypto-js": "^4.2.0",
     "html2canvas": "^1.4.1",
     "pinia": "^3.0.3",
     "vue": "^3.5.22"
@@ -33,7 +31,6 @@
     "eslint-plugin-vue": "~10.4.0",
     "globals": "^16.3.0",
     "prettier": "3.6.2",
-    "vite": "^7.1.7",
-    "vite-plugin-vue-devtools": "^8.0.2"
+    "vite": "^7.1.7"
   }
 }

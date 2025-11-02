@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed, shallowRef } from "vue";
+import * as dialog from '@/utils/dialog';
 
 export const useEditorStore = defineStore('editor', () => {
     // stored all sections
@@ -44,6 +45,26 @@ export const useEditorStore = defineStore('editor', () => {
         })
     }
 
+    // add a parallax section (scrollytelling effect)
+    const addParallaxSection = () => {
+        sections.value.push({
+            id: Date.now(),
+            type: 'parallax',
+            slides: [
+                {
+                    id: Date.now(),
+                    bgImg: '',
+                    sourceType: 'url',
+                    _blobUrl: '',
+                    blocks: []
+                }
+            ],
+            props: {
+                height: 800, // minimum height for each slide
+            }
+        })
+    }
+
     // add a text block
     const addTextBlock = () => {
         const sec = currSection.value;
@@ -61,10 +82,13 @@ export const useEditorStore = defineStore('editor', () => {
         selected.value = { type: 'text', sectionId: sec.id, blockId: newBlock.id };
     };
 
-    const addImageBlock = (src, sourceType = 'url') => {
+    const addImageBlock = async (src, sourceType = 'url') => {
         const sec = currSection.value;
         if (!sec) {
-            alert('⚠️ Please select a section first!');
+            await dialog.warning('Please select a section first.\n\nClick on a section to select it before adding content.', {
+                title: 'No Section Selected',
+                icon: '⚠️'
+            });
             return;
         }
 
@@ -154,11 +178,14 @@ export const useEditorStore = defineStore('editor', () => {
     };
 
     // Add a video block
-    const addVideoBlock = (url) => {
+    const addVideoBlock = async (url) => {
         const sec = currSection.value;
         
         if (!sec) {
-            alert('⚠️ Please select a section first!');
+            await dialog.warning('Please select a section first.\n\nClick on a section to select it before adding content.', {
+                title: 'No Section Selected',
+                icon: '⚠️'
+            });
             return;
         }
 
@@ -166,7 +193,9 @@ export const useEditorStore = defineStore('editor', () => {
         const videoId = extractYouTubeId(url);
         
         if (!videoId) {
-            alert('❌ Invalid YouTube URL. Please enter a valid YouTube video link.');
+            await dialog.error('Invalid YouTube URL.\n\nPlease enter a valid YouTube video link.', {
+                title: 'Invalid URL'
+            });
             return;
         }
 
@@ -238,13 +267,15 @@ export const useEditorStore = defineStore('editor', () => {
       img.captionBubbleAnimated = !!v
     }
     // Video block controls
-    const setVideoUrl = (url) => {
+    const setVideoUrl = async (url) => {
         const blk = currBlock.value;
         if (!blk || blk.type !== 'video') return;
         
         const videoId = extractYouTubeId(url);
         if (!videoId) {
-            alert('❌ Invalid YouTube URL');
+            await dialog.error('Invalid YouTube URL.\n\nPlease enter a valid YouTube video link.', {
+                title: 'Invalid URL'
+            });
             return;
         }
         
@@ -344,10 +375,135 @@ export const useEditorStore = defineStore('editor', () => {
 
     const revokeAllBlobs = () => {
         sections.value.forEach(s => {
+            // Revoke parallax section slide backgrounds
+            if (s.type === 'parallax' && s.slides) {
+                s.slides.forEach(slide => {
+                    const u = slide._blobUrl
+                    if (u && u.startsWith('blob:')) {
+                        try { URL.revokeObjectURL(u) } catch { ; }
+                        slide._blobUrl = ''
+                    }
+                })
+            }
+            
+            // Revoke normal section backgrounds
             const u = s.props?._blobUrl
             if (u && u.startsWith('blob:')) {
                 try { URL.revokeObjectURL(u) } catch { ; }
                 s.props._blobUrl = ''
+            }
+        })
+    }
+
+    // Helper function to extract image ID from local URL
+    const extractImageId = (url) => {
+        if (!url || typeof url !== 'string') return null
+        // Match both old format (local://<id>) and new format (http://localhost:3001/api/images/temp/<id>)
+        const oldFormatMatch = url.match(/^local:\/\/(.+)$/)
+        if (oldFormatMatch) return oldFormatMatch[1]
+        
+        const newFormatMatch = url.match(/^https?:\/\/localhost:\d+\/api\/images\/temp\/(.+)$/)
+        return newFormatMatch ? newFormatMatch[1] : null
+    }
+
+    // Collect all local image IDs from sections
+    const collectLocalImageIds = () => {
+        const imageIds = new Set()
+        
+        sections.value.forEach(section => {
+            // Check parallax section slides
+            if (section.type === 'parallax' && section.slides) {
+                section.slides.forEach(slide => {
+                    const id = extractImageId(slide.bgImg)
+                    if (id) {
+                        imageIds.add(id)
+                    }
+                })
+            }
+            
+            // Check section background
+            if (section.props?.bgImg) {
+                const id = extractImageId(section.props.bgImg)
+                if (id) {
+                    imageIds.add(id)
+                }
+            }
+            
+            // Check blocks
+            if (section.blocks) {
+                section.blocks.forEach(block => {
+                    if (block.type === 'image' && Array.isArray(block.images)) {
+                        block.images.forEach(img => {
+                            const id = extractImageId(img.src)
+                            if (id) {
+                                imageIds.add(id)
+                            }
+                        })
+                    } else if (block.type === 'fullwidth-image' && block.image) {
+                        const id = extractImageId(block.image.src)
+                        if (id) {
+                            imageIds.add(id)
+                        }
+                    } else if (block.type === 'float-image' && block.image) {
+                        const id = extractImageId(block.image.src)
+                        if (id) {
+                            imageIds.add(id)
+                        }
+                    }
+                })
+            }
+        })
+        
+        return Array.from(imageIds)
+    }
+
+    // Replace local URLs with GitHub URLs after batch upload
+    const replaceLocalUrls = (urlMapping) => {
+        sections.value.forEach(section => {
+            // Replace parallax section slides
+            if (section.type === 'parallax' && section.slides) {
+                section.slides.forEach(slide => {
+                    const id = extractImageId(slide.bgImg)
+                    if (id && urlMapping[id]) {
+                        slide.bgImg = urlMapping[id]
+                        slide.sourceType = 'github'
+                    }
+                })
+            }
+            
+            // Replace section background
+            if (section.props?.bgImg) {
+                const id = extractImageId(section.props.bgImg)
+                if (id && urlMapping[id]) {
+                    section.props.bgImg = urlMapping[id]
+                }
+            }
+            
+            // Replace in blocks
+            if (section.blocks) {
+                section.blocks.forEach(block => {
+                    if (block.type === 'image' && Array.isArray(block.images)) {
+                        block.images.forEach(img => {
+                            const id = extractImageId(img.src)
+                            if (id && urlMapping[id]) {
+                                img.src = urlMapping[id]
+                                img.sourceType = 'github'
+                            }
+                        })
+                    } else if (block.type === 'fullwidth-image' && block.image) {
+                        const id = extractImageId(block.image.src)
+                        if (id && urlMapping[id]) {
+                            block.image.src = urlMapping[id]
+                            block.image.sourceType = 'github'
+                        }
+                    } else if (block.type === 'float-image' && block.image) {
+                        const id = extractImageId(block.image.src)
+                        if (id && urlMapping[id]) {
+                            block.image.src = urlMapping[id]
+                            block.image.sourceType = 'github'
+                        }
+                    }
+                })
             }
         })
     }
@@ -520,10 +676,6 @@ export const useEditorStore = defineStore('editor', () => {
         blk.image.captionBubbleAnimated = !!v
       }
 
-      const setFloatImgText = (html) => {
-        const blk = currBlock.value;
-        if (blk && blk.type === 'float-image') blk.text = html ?? '';
-      };
 
 
     // delete selected
@@ -602,13 +754,27 @@ export const useEditorStore = defineStore('editor', () => {
     };
 
     const exportToHTML = async () => {
-        // Convert blob URLs to base64 before export
-        // BUT keep external URLs as-is (don't convert them to base64)
+        // Image handling strategy:
+        // - GitHub URLs (https://...): Keep as-is (uploaded images)
+        // - Data URLs (data:image/...): Keep as-is (for backward compatibility with old files)
+        // - Blob URLs (blob:...): Convert to base64 (temporary preview URLs)
+        // - External URLs (http://...): Keep as-is (external images)
         const sectionsClone = JSON.parse(JSON.stringify(sections.value));
         
         for (const section of sectionsClone) {
+            // Handle parallax sections
+            if (section.type === 'parallax' && section.slides) {
+                for (const slide of section.slides) {
+                    // Convert blob URLs only, keep GitHub URLs and data URLs as-is
+                    if (slide.bgImg && slide.bgImg.startsWith('blob:')) {
+                        slide.bgImg = await blobUrlToBase64(slide.bgImg);
+                    }
+                    // GitHub URLs and data URLs are preserved automatically
+                }
+            }
+            
             // Convert section background image if it's a blob URL (temporary upload preview)
-            // Background images from file uploads are stored as blob URLs during editing
+            // GitHub URLs and data URLs are preserved
             if (section.props?.bgImg && section.props.bgImg.startsWith('blob:')) {
                 section.props.bgImg = await blobUrlToBase64(section.props.bgImg);
             }
@@ -619,28 +785,25 @@ export const useEditorStore = defineStore('editor', () => {
                     if (block.type === 'image' && block.images && Array.isArray(block.images)) {
                         // Process each image in the block
                         for (const img of block.images) {
-                            // Only convert blob URLs (temporary) or images marked as 'upload'
-                            // Keep external URLs as-is
+                            // Only convert blob URLs (temporary preview URLs)
+                            // Keep GitHub URLs, external URLs, and data URLs (backward compatibility) as-is
                             if (img.src && img.src.startsWith('blob:')) {
-                                // Blob URL - convert to base64
                                 img.src = await blobUrlToBase64(img.src);
                             }
-                            // If sourceType is 'url', keep the URL as-is (already external URL)
-                            // If sourceType is 'upload', it's already a data URL, keep as-is
-                            // No conversion needed for data URLs or external URLs
+                            // GitHub URLs, external URLs, and data URLs are preserved
                         }
                     } else if (block.type === 'fullwidth-image' && block.image) {
                         // Process fullwidth image
                         if (block.image.src && block.image.src.startsWith('blob:')) {
                             block.image.src = await blobUrlToBase64(block.image.src);
                         }
-                        // Keep external URLs and data URLs as-is
+                        // GitHub URLs, external URLs, and data URLs are preserved
                     } else if (block.type === 'float-image' && block.image) {
                         // Process float image
                         if (block.image.src && block.image.src.startsWith('blob:')) {
                             block.image.src = await blobUrlToBase64(block.image.src);
                         }
-                        // Keep external URLs and data URLs as-is
+                        // GitHub URLs, external URLs, and data URLs are preserved
                     }
                     // Video blocks don't need conversion as they use YouTube embed URLs
                 }
@@ -684,32 +847,47 @@ export const useEditorStore = defineStore('editor', () => {
             box-sizing: border-box;
             position: relative;
             border-top: 2px solid #e0e0e0;
-            padding: 16px 20px;
+            /* Remove padding to let background color/image extend to edges */
+            padding: 0;
             overflow: visible;
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
+            /* Responsive width: use max-width instead of fixed width */
+            width: 100%;
+            /* Smooth transition for real-time responsiveness */
+            transition: all 0.2s ease;
+        }
+        .block-wrapper {
+            /* Add horizontal and vertical padding to content blocks */
+            padding: clamp(12px, 2vw, 24px) clamp(16px, 3vw, 32px);
+            transition: padding 0.2s ease;
         }
         .text-block {
-            max-width: 65ch;
+            /* Fluid max-width: adapts to viewport */
+            max-width: min(65ch, 95%);
             width: 100%;
-            margin: 10px auto;
-            padding: 8px;
+            margin: 0 auto;
+            /* Padding is provided by block-wrapper */
+            padding: 0;
         }
         .text-block h1 {
-            font-size: 2em;
+            /* Fluid font size: scales between 1.5em and 2em based on viewport */
+            font-size: clamp(1.5em, 4vw, 2em);
             font-weight: 700;
             margin: 0.67em 0;
             line-height: 1.2;
         }
         .text-block h2 {
-            font-size: 1.5em;
+            /* Fluid font size: scales between 1.25em and 1.5em */
+            font-size: clamp(1.25em, 3vw, 1.5em);
             font-weight: 700;
             margin: 0.83em 0;
             line-height: 1.3;
         }
         .text-block p {
-            font-size: 1em;
+            /* Fluid font size for better readability on all screens */
+            font-size: clamp(0.95em, 1.5vw, 1em);
             line-height: 1.6;
             margin: 1em 0;
         }
@@ -737,9 +915,39 @@ export const useEditorStore = defineStore('editor', () => {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 10px 0;
+            /* Regular image blocks stay within content area */
+            margin: clamp(8px, 1.5vw, 10px) 0;
+            padding: 0;
         }
         .image-block img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.1);
+            object-fit: cover;
+            /* Smooth transition for image resizing */
+            transition: all 0.2s ease;
+        }
+        .fullwidth-image-block {
+            width: 100%;
+            /* Full-width images extend to edges with no left/right margins */
+            margin: clamp(12px, 2vw, 24px) 0;
+            padding: 0;
+        }
+        .fullwidth-image-block img {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            /* Remove border radius to make image flush with edges */
+            border-radius: 0;
+            display: block;
+            transition: all 0.2s ease;
+        }
+        .float-image-block {
+            margin: clamp(8px, 1.5vw, 10px);
+            transition: all 0.2s ease;
+        }
+        .float-image-block img {
             max-width: 100%;
             height: auto;
             border-radius: 4px;
@@ -748,12 +956,18 @@ export const useEditorStore = defineStore('editor', () => {
             display: flex;
             justify-content: center;
             align-items: center;
-            margin: 10px 0;
+            margin: clamp(8px, 1.5vw, 10px) 0;
         }
         .video-block iframe {
             max-width: 100%;
             border: none;
             border-radius: 4px;
+            /* Maintain aspect ratio */
+            aspect-ratio: 16 / 9;
+        }
+        .video-fallback {
+            max-width: 100%;
+            transition: all 0.2s ease;
         }
         .text-align-left {
             text-align: left;
@@ -785,6 +999,162 @@ export const useEditorStore = defineStore('editor', () => {
             float: right;
             padding: 0;
             margin: -4px 0 0 10px;
+        }
+        
+        /* Parallax Section Styles */
+        .parallax-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        .parallax-bg-wrapper {
+            position: sticky;
+            top: 0;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            z-index: 0;
+        }
+        
+        .parallax-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out;
+        }
+        
+        .parallax-bg.active {
+            opacity: 1;
+        }
+        
+        .parallax-content {
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        .parallax-slide {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Fluid padding for parallax slides */
+            padding: clamp(1rem, 3vw, 2rem);
+            transition: padding 0.2s ease;
+        }
+        
+        .parallax-slide-content {
+            /* Fluid max-width for parallax content */
+            max-width: min(800px, 95%);
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            /* Fluid padding */
+            padding: clamp(1.5rem, 4vw, 3rem);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            pointer-events: auto;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            transition: padding 0.2s ease;
+        }
+        .parallax-slide-content * {
+            max-width: 100%; 
+        }
+
+        .parallax-slide-content.transparent {
+            background: transparent;
+            box-shadow: none;
+        }
+
+        /* ========== Responsive Design - Media Queries ========== */
+        /* Note: Most responsive behavior is now handled by clamp() and fluid units above */
+        /* These media queries provide additional fine-tuning for specific breakpoints */
+        
+        /* Desktop (default): 1200px+ */
+        @media (min-width: 1200px) {
+            .section {
+                max-width: 1200px;
+            }
+        }
+        
+        /* Laptop/Tablet landscape: 768px - 1199px */
+        @media (min-width: 768px) and (max-width: 1199px) {
+            .section {
+                max-width: min(960px, 95vw);
+            }
+            .text-block {
+                max-width: min(55ch, 90%);
+            }
+            .parallax-slide-content {
+                max-width: min(600px, 90%);
+            }
+        }
+        
+        /* Tablet portrait: 480px - 767px */
+        @media (min-width: 480px) and (max-width: 767px) {
+            .section {
+                max-width: 100%;
+            }
+            .text-block {
+                max-width: min(45ch, 95%);
+            }
+            .parallax-slide-content {
+                max-width: 95%;
+            }
+            .float-image-block {
+                float: none !important;
+                margin: 10px auto !important;
+                text-align: center;
+                max-width: 90%;
+            }
+        }
+        
+        /* Mobile: 0 - 479px */
+        @media (max-width: 479px) {
+            .section {
+                max-width: 100%;
+                min-height: auto !important;
+            }
+            .text-block {
+                max-width: 100%;
+            }
+            .parallax-slide-content {
+                max-width: 95%;
+                border-radius: 4px;
+            }
+            .float-image-block {
+                float: none !important;
+                margin: 10px auto !important;
+                text-align: center;
+                max-width: 100%;
+            }
+            .info-banner {
+                font-size: clamp(11px, 2.5vw, 14px);
+                padding: clamp(6px, 1.5vw, 12px);
+            }
+            /* Optimize video aspect ratio for mobile */
+            .video-block iframe,
+            .video-fallback {
+                width: 100%;
+                height: auto;
+            }
+        }
+        
+        /* Ultra-wide screens: 1920px+ */
+        @media (min-width: 1920px) {
+            .section {
+                max-width: 1400px;
+            }
+            .text-block {
+                max-width: 75ch;
+            }
         }
     </style>
     <script>
@@ -837,6 +1207,48 @@ export const useEditorStore = defineStore('editor', () => {
                 // This provides best UX: clickable thumbnails that load videos on demand
             }
         });
+        
+        // Parallax scrolling effect
+        document.addEventListener('DOMContentLoaded', function() {
+            const parallaxContainers = document.querySelectorAll('.parallax-container');
+            
+            parallaxContainers.forEach(container => {
+                const backgrounds = container.querySelectorAll('.parallax-bg');
+                const slides = container.querySelectorAll('.parallax-slide');
+                
+                if (backgrounds.length === 0 || slides.length === 0) return;
+                
+                function updateParallax() {
+                    const containerTop = container.getBoundingClientRect().top;
+                    const containerHeight = container.offsetHeight;
+                    const windowHeight = window.innerHeight;
+                    
+                    // Calculate scroll progress within container
+                    const scrollProgress = -containerTop / (containerHeight - windowHeight);
+                    const clampedProgress = Math.max(0, Math.min(1, scrollProgress));
+                    
+                    // Calculate which slide should be active
+                    const slideIndex = Math.floor(clampedProgress * slides.length);
+                    const activeIndex = Math.min(slideIndex, slides.length - 1);
+                    
+                    // Update background visibility
+                    backgrounds.forEach((bg, index) => {
+                        if (index === activeIndex) {
+                            bg.classList.add('active');
+                        } else {
+                            bg.classList.remove('active');
+                        }
+                    });
+                }
+                
+                // Initial update
+                updateParallax();
+                
+                // Update on scroll
+                window.addEventListener('scroll', updateParallax, { passive: true });
+                window.addEventListener('resize', updateParallax, { passive: true });
+            });
+        });
     </script>
 </head>
 <body>
@@ -850,6 +1262,50 @@ export const useEditorStore = defineStore('editor', () => {
 `;
 
         sectionsClone.forEach(section => {
+            // Handle parallax sections
+            if (section.type === 'parallax' && section.slides) {
+                const parallaxId = 'parallax-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                
+                // Build background layers
+                let backgrounds = '';
+                section.slides.forEach((slide, index) => {
+                    const bgImg = slide.bgImg || '';
+                    const activeClass = index === 0 ? ' active' : '';
+                    backgrounds += `            <div class="parallax-bg${activeClass}" style="background-image: url('${bgImg}');"></div>\n`;
+                });
+                
+                // Build slide content
+                let slideContent = '';
+                section.slides.forEach((slide, index) => {
+                    let blocks = '';
+                    if (slide.blocks && slide.blocks.length > 0) {
+                        slide.blocks.forEach(blk => {
+                            if (blk.type === 'text') {
+                                blocks += `                    ${blk.html || '<p></p>'}\n`;
+                            }
+                        });
+                    }
+                    
+                    const transparentClass = !blocks ? ' transparent' : '';
+                    slideContent += `            <div class="parallax-slide" data-slide-index="${index}">\n`;
+                    slideContent += `                <div class="parallax-slide-content${transparentClass}">\n`;
+                    slideContent += blocks;
+                    slideContent += `                </div>\n`;
+                    slideContent += `            </div>\n`;
+                });
+                
+                htmlContent += `        <div class="parallax-container" id="${parallaxId}">\n`;
+                htmlContent += `            <div class="parallax-bg-wrapper">\n`;
+                htmlContent += backgrounds;
+                htmlContent += `            </div>\n`;
+                htmlContent += `            <div class="parallax-content">\n`;
+                htmlContent += slideContent;
+                htmlContent += `            </div>\n`;
+                htmlContent += `        </div>\n`;
+                return;
+            }
+            
+            // Handle normal sections
             const sectionProps = section.props || {};
             const width = sectionProps.width || 1200;
             const minHeight = sectionProps.height || 800;
@@ -857,7 +1313,9 @@ export const useEditorStore = defineStore('editor', () => {
             const bgImg = sectionProps.bgImg || '';
             const bgType = sectionProps.bgType || 'color';
 
-            let sectionStyle = `width: ${width}px; min-height: ${minHeight}px;`;
+            // Don't use max-width in inline style - let CSS media queries handle it
+            // Only set min-height and background in inline style
+            let sectionStyle = `min-height: ${minHeight}px;`;
             
             if (bgType === 'img' && bgImg) {
                 sectionStyle += ` background-image: url('${bgImg}');`;
@@ -867,11 +1325,14 @@ export const useEditorStore = defineStore('editor', () => {
 
             htmlContent += `        <section class="section" style="${sectionStyle}">\n`;
 
-            section.blocks.forEach(block => {
+            if (section.blocks) {
+                section.blocks.forEach(block => {
                 if (block.type === 'text') {
                     const blockWidth = block.props?.width || '65ch';
-                    htmlContent += `            <div class="text-block" style="max-width: ${blockWidth};">\n`;
-                    htmlContent += `                ${block.html || '<p></p>'}\n`;
+                    htmlContent += `            <div class="block-wrapper">\n`;
+                    htmlContent += `                <div class="text-block" style="max-width: ${blockWidth};">\n`;
+                    htmlContent += `                    ${block.html || '<p></p>'}\n`;
+                    htmlContent += `                </div>\n`;
                     htmlContent += `            </div>\n`;
                 } else if (block.type === 'image') {
                     // Handle images array structure
@@ -881,18 +1342,24 @@ export const useEditorStore = defineStore('editor', () => {
                         const imgHeight = img.height || 300;
                         const objectFit = img.keepRatio ? 'contain' : 'fill';
                         const imgSrc = img.src || '';
-                        htmlContent += `            <figure class="image-block">\n`;
-                        htmlContent += `                <img src="${imgSrc}" style="width: ${imgWidth}px; height: ${imgHeight}px; object-fit: ${objectFit}; object-position: center;" alt="Image" />\n`;
-                        htmlContent += `            </figure>\n`;
+                        // Use max-width for responsive images
+                        htmlContent += `            <div class="block-wrapper">\n`;
+                        htmlContent += `                <figure class="image-block">\n`;
+                        htmlContent += `                    <img src="${imgSrc}" style="max-width: min(${imgWidth}px, 100%); height: auto; object-fit: ${objectFit}; object-position: center;" alt="Image" />\n`;
+                        htmlContent += `                </figure>\n`;
+                        htmlContent += `            </div>\n`;
                     }
                 } else if (block.type === 'fullwidth-image') {
-                    // Handle fullwidth image
+                    // Handle fullwidth image - NO block-wrapper, should extend to edges
                     if (block.image && block.image.src) {
                         const imgSrc = block.image.src || '';
                         const imgHeight = block.image.height || 400;
                         const objectFit = block.image.keepRatio ? 'contain' : 'cover';
+                        const caption = block.image.caption ? `<figcaption class="image-caption">${block.image.caption}</figcaption>` : '';
+                        // Fullwidth images are always 100% width, height auto for responsiveness
                         htmlContent += `            <figure class="fullwidth-image-block" style="width: 100%; margin: 0; padding: 0;">\n`;
-                        htmlContent += `                <img src="${imgSrc}" style="width: 100%; height: ${imgHeight}px; object-fit: ${objectFit}; object-position: center; display: block;" alt="Fullwidth Image" />\n`;
+                        htmlContent += `                <img src="${imgSrc}" style="width: 100%; max-height: ${imgHeight}px; object-fit: ${objectFit}; object-position: center; display: block;" alt="Fullwidth Image" />\n`;
+                        htmlContent += `                ${caption}\n`;
                         htmlContent += `            </figure>\n`;
                     }
                 } else if (block.type === 'float-image') {
@@ -904,28 +1371,34 @@ export const useEditorStore = defineStore('editor', () => {
                         const objectFit = block.image.keepRatio ? 'contain' : 'cover';
                         const floatPosition = block.float || 'left';
                         const margin = floatPosition === 'left' ? '0 20px 10px 0' : '0 0 10px 20px';
-                        htmlContent += `            <figure class="float-image-block" style="float: ${floatPosition}; margin: ${margin};">\n`;
-                        htmlContent += `                <img src="${imgSrc}" style="width: ${imgWidth}px; height: ${imgHeight}px; object-fit: ${objectFit}; object-position: center; display: block;" alt="Float Image" />\n`;
-                        htmlContent += `            </figure>\n`;
+                        // Use max-width for responsive float images
+                        htmlContent += `            <div class="block-wrapper">\n`;
+                        htmlContent += `                <figure class="float-image-block" style="float: ${floatPosition}; margin: ${margin}; max-width: min(${imgWidth}px, 100%);">\n`;
+                        htmlContent += `                    <img src="${imgSrc}" style="width: 100%; height: auto; object-fit: ${objectFit}; object-position: center; display: block;" alt="Float Image" />\n`;
+                        htmlContent += `                </figure>\n`;
+                        htmlContent += `            </div>\n`;
                     }
                 } else if (block.type === 'video') {
                     const videoWidth = block.width || 560;
                     const videoHeight = block.height || 315;
                     const videoId = block.videoId;
-                    htmlContent += `            <div class="video-block" id="video-${videoId}">\n`;
+                    htmlContent += `            <div class="block-wrapper">\n`;
+                    htmlContent += `                <div class="video-block" id="video-${videoId}">\n`;
                     // Fallback: Show thumbnail with play button that links to YouTube
-                    htmlContent += `                <div class="video-fallback" style="position: relative; width: ${videoWidth}px; height: ${videoHeight}px; max-width: 100%; background: #000; border-radius: 4px; cursor: pointer;" onclick="loadYouTubeVideo('${videoId}', ${videoWidth}, ${videoHeight})">\n`;
-                    htmlContent += `                    <img src="https://img.youtube.com/vi/${videoId}/maxresdefault.jpg" alt="Video thumbnail" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;" onerror="this.src='https://img.youtube.com/vi/${videoId}/hqdefault.jpg'" />\n`;
-                    htmlContent += `                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 68px; height: 48px; background: rgba(255,0,0,0.9); border-radius: 12px; cursor: pointer;">\n`;
-                    htmlContent += `                        <svg height="100%" version="1.1" viewBox="0 0 68 48" width="100%"><path d="M66.52,7.74c-0.78-2.93-2.49-5.41-5.42-6.19C55.79,.13,34,0,34,0S12.21,.13,6.9,1.55 C3.97,2.33,2.27,4.81,1.48,7.74C0.06,13.05,0,24,0,24s0.06,10.95,1.48,16.26c0.78,2.93,2.49,5.41,5.42,6.19 C12.21,47.87,34,48,34,48s21.79-0.13,27.1-1.55c2.93-0.78,4.64-3.26,5.42-6.19C67.94,34.95,68,24,68,24S67.94,13.05,66.52,7.74z" fill="#f00"></path><path d="M 45,24 27,14 27,34" fill="#fff"></path></svg>\n`;
+                    htmlContent += `                    <div class="video-fallback" style="position: relative; width: ${videoWidth}px; height: ${videoHeight}px; max-width: 100%; background: #000; border-radius: 4px; cursor: pointer;" onclick="loadYouTubeVideo('${videoId}', ${videoWidth}, ${videoHeight})">\n`;
+                    htmlContent += `                        <img src="https://img.youtube.com/vi/${videoId}/maxresdefault.jpg" alt="Video thumbnail" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;" onerror="this.src='https://img.youtube.com/vi/${videoId}/hqdefault.jpg'" />\n`;
+                    htmlContent += `                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 68px; height: 48px; background: rgba(255,0,0,0.9); border-radius: 12px; cursor: pointer;">\n`;
+                    htmlContent += `                            <svg height="100%" version="1.1" viewBox="0 0 68 48" width="100%"><path d="M66.52,7.74c-0.78-2.93-2.49-5.41-5.42-6.19C55.79,.13,34,0,34,0S12.21,.13,6.9,1.55 C3.97,2.33,2.27,4.81,1.48,7.74C0.06,13.05,0,24,0,24s0.06,10.95,1.48,16.26c0.78,2.93,2.49,5.41,5.42,6.19 C12.21,47.87,34,48,34,48s21.79-0.13,27.1-1.55c2.93-0.78,4.64-3.26,5.42-6.19C67.94,34.95,68,24,68,24S67.94,13.05,66.52,7.74z" fill="#f00"></path><path d="M 45,24 27,14 27,34" fill="#fff"></path></svg>\n`;
+                    htmlContent += `                        </div>\n`;
+                    htmlContent += `                        <div style="position: absolute; bottom: 8px; left: 8px; right: 8px; color: white; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">Click to play video</div>\n`;
                     htmlContent += `                    </div>\n`;
-                    htmlContent += `                    <div style="position: absolute; bottom: 8px; left: 8px; right: 8px; color: white; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.8);">Click to play video</div>\n`;
-                    htmlContent += `                </div>\n`;
                     // Also include iframe (will work on web servers)
-                    htmlContent += `                <iframe class="video-iframe" width="${videoWidth}" height="${videoHeight}" src="https://www.youtube-nocookie.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" style="display: none; max-width: 100%; border-radius: 4px;"></iframe>\n`;
+                    htmlContent += `                    <iframe class="video-iframe" width="${videoWidth}" height="${videoHeight}" src="https://www.youtube-nocookie.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" style="display: none; max-width: 100%; border-radius: 4px;"></iframe>\n`;
+                    htmlContent += `                </div>\n`;
                     htmlContent += `            </div>\n`;
                 }
-            });
+                });
+            }
 
             htmlContent += `        </section>\n`;
         });
@@ -937,54 +1410,26 @@ export const useEditorStore = defineStore('editor', () => {
         return htmlContent;
     };
 
-    const downloadHTML = async () => {
-        const htmlContent = await exportToHTML();
-        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `article_${new Date().getTime()}.html`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-
-    const generateIframeCode = async () => {
-        const htmlContent = await exportToHTML();
-        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        
-        const iframeCode = `<iframe 
-    src="${url}" 
-    width="100%" 
-    height="600" 
-    frameborder="0" 
-    style="border: none; max-width: 100%;"
-    sandbox="allow-same-origin allow-scripts"
-></iframe>`;
-        
-        return iframeCode;
-    };
-
-    const copyIframeCode = async () => {
-        const iframeCode = await generateIframeCode();
-        try {
-            await navigator.clipboard.writeText(iframeCode);
-            return true;
-        } catch (err) {
-            console.error('Failed to copy iframe code:', err);
-            return false;
-        }
-    };
 
 
     // Convert sections data blob URLs to base64 for saving
+    // Image handling: GitHub URLs and data URLs are preserved, only blob URLs are converted
     const prepareSectionsForSave = async () => {
         const sectionsClone = JSON.parse(JSON.stringify(sections.value));
         
         for (const section of sectionsClone) {
+            // Handle parallax sections
+            if (section.type === 'parallax' && section.slides) {
+                for (const slide of section.slides) {
+                    // Convert blob URLs only, preserve GitHub URLs and data URLs
+                    if (slide.bgImg && slide.bgImg.startsWith('blob:')) {
+                        slide.bgImg = await blobUrlToBase64(slide.bgImg);
+                    }
+                }
+            }
+            
             // Convert section background image if it's a blob URL
+            // GitHub URLs and data URLs are preserved
             if (section.props?.bgImg && section.props.bgImg.startsWith('blob:')) {
                 section.props.bgImg = await blobUrlToBase64(section.props.bgImg);
             }
@@ -993,7 +1438,7 @@ export const useEditorStore = defineStore('editor', () => {
             if (section.blocks) {
                 for (const block of section.blocks) {
                     if (block.type === 'image' && block.images && Array.isArray(block.images)) {
-                        // Process each image in the block
+                        // Process each image - preserve GitHub URLs and data URLs
                         for (const img of block.images) {
                             if (img.src && img.src.startsWith('blob:')) {
                                 img.src = await blobUrlToBase64(img.src);
@@ -1063,13 +1508,17 @@ export const useEditorStore = defineStore('editor', () => {
     };
 
     // Return to home - clear editor to initial state
-    const returnToHome = () => {
+    const returnToHome = async () => {
         // Ask for confirmation if there's unsaved content
         if (sections.value.length > 0 && !currentPageInfo.value.isLoaded) {
-            const confirmed = confirm(
-                '⚠️ You have unsaved content in the editor.\n\n' +
-                'Returning to home will clear all current content.\n\n' +
-                'Continue?'
+            const confirmed = await dialog.warning(
+                'You have unsaved content in the editor.\n\nReturning to home will clear all current content.\n\nContinue?',
+                {
+                    title: 'Unsaved Content',
+                    icon: '⚠️',
+                    confirmText: 'Clear & Return',
+                    cancelText: 'Cancel'
+                }
             );
             if (!confirmed) return false;
         }
@@ -1081,7 +1530,7 @@ export const useEditorStore = defineStore('editor', () => {
     };
 
     // Load sections data from saved page
-    const loadSections = (sectionsData, pageInfo = null) => {
+    const loadSections = async (sectionsData, pageInfo = null) => {
         try {
             // Clear existing content first
             clearAllSections();
@@ -1108,7 +1557,9 @@ export const useEditorStore = defineStore('editor', () => {
             }
         } catch (error) {
             console.error('Failed to load sections:', error);
-            alert('Failed to load page content into editor');
+            await dialog.error('Failed to load page content into editor.\n\nAn error occurred while loading the page.', {
+                title: 'Load Error'
+            });
         }
     };
 
@@ -1120,6 +1571,7 @@ export const useEditorStore = defineStore('editor', () => {
         
         // Section operations
         addSection,
+        addParallaxSection,
         selectSection,
         currSection,
         setSecType,
@@ -1159,7 +1611,6 @@ export const useEditorStore = defineStore('editor', () => {
         setFloatImgAlign,
         setFloatImgWidth,
         setFloatImgCaption,
-        setFloatImgText,
         setFloatImgCaptionPosition,
         setFloatImgCaptionBubbleAnimated,
         
@@ -1185,9 +1636,6 @@ export const useEditorStore = defineStore('editor', () => {
         
         // Export operations
         exportToHTML,
-        downloadHTML,
-        generateIframeCode,
-        copyIframeCode,
         prepareSectionsForSave,
         generatePreviewImage,
         
@@ -1195,5 +1643,10 @@ export const useEditorStore = defineStore('editor', () => {
         clearAllSections,
         loadSections,
         returnToHome,
+        
+        // Local image operations
+        extractImageId,
+        collectLocalImageIds,
+        replaceLocalUrls,
     }
 });

@@ -1,15 +1,21 @@
 <template>
   <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="settings-modal">
+    <div class="modal-container settings-modal">
       <div class="modal-header">
-        <h2>⚙️ GitHub Pages Settings</h2>
-        <button class="close-btn" @click="$emit('close')">✕</button>
+        <div class="header-content">
+          <div class="header-icon">⚙</div>
+          <div>
+            <h3>GitHub Pages Settings</h3>
+            <p class="modal-subtitle">Configure GitHub integration to enable saving and publishing</p>
+          </div>
+        </div>
+        <button class="modal-close" @click="$emit('close')">×</button>
       </div>
 
       <div class="modal-body">
         <div class="info-box">
           <p>
-            <strong>📌 Important:</strong> GitHub Pages is required for saving your work. 
+            <strong>Important:</strong> GitHub Pages is required for saving your work. 
             Please configure your GitHub repository settings below.
           </p>
         </div>
@@ -30,7 +36,7 @@
             <small class="help-text">
               Create a token at: 
               <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">
-                GitHub Settings → Developer settings → Personal access tokens
+                GitHub Settings > Developer settings > Personal access tokens
               </a>
               <br />Required permissions: <code>repo</code> (Full control of private repositories)
             </small>
@@ -98,10 +104,10 @@
 
           <div class="button-group">
             <button type="button" class="btn btn-test" @click="handleTest" :disabled="testing">
-              {{ testing ? '🔄 Testing...' : '🧪 Test Connection' }}
+              {{ testing ? 'Testing...' : 'Test Connection' }}
             </button>
             <button type="submit" class="btn btn-save" :disabled="saving">
-              {{ saving ? '💾 Saving...' : '💾 Save Settings' }}
+              {{ saving ? 'Saving...' : 'Save Settings' }}
             </button>
           </div>
 
@@ -129,11 +135,11 @@
             </div>
             <div class="config-item">
               <span class="config-label">Status:</span>
-              <span class="config-value status-active">✅ Configured</span>
+              <span class="config-value status-active">✓ Configured</span>
             </div>
           </div>
           <div v-else class="config-display">
-            <p class="no-config">⚠️ No GitHub configuration found. Please configure above to enable saving.</p>
+            <p class="no-config">No GitHub configuration found. Please configure above to enable saving.</p>
           </div>
         </div>
       </div>
@@ -143,6 +149,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import * as dialog from '@/utils/dialog'
 
 const emit = defineEmits(['close'])
 
@@ -200,12 +207,12 @@ const handleTest = async () => {
     if (response.ok && data.success) {
       testResult.value = {
         success: true,
-        message: '✅ Connection successful! GitHub API is working correctly.'
+        message: 'Connection successful! GitHub API is working correctly.'
       }
     } else {
       testResult.value = {
         success: false,
-        message: `❌ Connection failed: ${data.error || 'Unknown error'}`
+        message: `Connection failed: ${data.error || 'Unknown error'}`
       }
     }
   } catch (error) {
@@ -232,15 +239,22 @@ const handleSave = async () => {
     const data = await response.json()
 
     if (response.ok) {
-      alert('✅ Settings saved successfully!')
+      await dialog.success('Your GitHub Pages settings have been saved successfully!', {
+        title: 'Settings Saved',
+        icon: '✓'
+      })
       await loadCurrentConfig()
       // Clear token field for security
       formData.value.token = ''
     } else {
-      alert(`❌ Failed to save settings: ${data.error}`)
+      await dialog.error(data.error, {
+        title: 'Failed to Save Settings'
+      })
     }
   } catch (error) {
-    alert(`❌ Failed to save settings: ${error.message}`)
+    await dialog.error(error.message, {
+      title: 'Failed to Save Settings'
+    })
   } finally {
     saving.value = false
   }
@@ -248,68 +262,125 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
+/* ===== Modal Base Styles ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  animation: fadeIn 0.3s ease;
 }
 
-.settings-modal {
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-container {
   background: white;
   border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 100%;
   max-width: 700px;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.settings-modal {
+  max-width: 750px;
 }
 
 .modal-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: 24px 28px;
-  border-bottom: 2px solid #e5e7eb;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: 2px solid #f3f4f6;
+  background: white;
+  gap: 16px;
 }
 
-.modal-header h2 {
+.modal-header h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  color: white;
+  color: #111827;
 }
 
-.close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
+.modal-subtitle {
+  margin: 6px 0 0 0;
+  font-size: 14px;
+  font-weight: normal;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+}
+
+.header-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: spin 3s ease-in-out infinite;
+}
+
+@keyframes spin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(15deg); }
+}
+
+.modal-close {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  color: #9ca3af;
   cursor: pointer;
-  font-size: 20px;
-  color: white;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  flex-shrink: 0;
 }
 
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+  transform: rotate(90deg);
 }
 
 .modal-body {
+  flex: 1;
   padding: 28px;
   overflow-y: auto;
 }

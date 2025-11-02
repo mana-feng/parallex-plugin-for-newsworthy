@@ -8,12 +8,31 @@ const __dirname = dirname(__filename);
 const dbPath = process.env.DB_PATH || join(__dirname, 'database.sqlite');
 const db = new Database(dbPath);
 
-// Enable foreign keys
 db.pragma('foreign_keys = ON');
 
-// Initialize database schema
+const currentPageSize = db.pragma('page_size', { simple: true });
+
+if (currentPageSize < 8192) {
+  console.log(`Current page_size: ${currentPageSize}, changing to 8192...`);
+  db.pragma('page_size = 8192');
+  console.log('Running VACUUM to apply page_size change...');
+  db.exec('VACUUM');
+  console.log('VACUUM completed, page_size updated');
+}
+
+db.pragma('cache_size = -10000');
+db.pragma('mmap_size = 268435456');
+db.pragma('journal_mode = WAL');
+db.pragma('max_page_count = 2147483646');
+
+console.log('SQLite configuration:');
+console.log('  - page_size:', db.pragma('page_size', { simple: true }));
+console.log('  - cache_size:', db.pragma('cache_size', { simple: true }));
+console.log('  - mmap_size:', db.pragma('mmap_size', { simple: true }));
+console.log('  - journal_mode:', db.pragma('journal_mode', { simple: true }));
+console.log('  - max_page_count:', db.pragma('max_page_count', { simple: true }));
+
 function initDatabase() {
-  // Create groups table
   db.exec(`
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,13 +44,12 @@ function initDatabase() {
     )
   `);
 
-  // Create pages table
   db.exec(`
     CREATE TABLE IF NOT EXISTS pages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
-      filename TEXT NOT NULL UNIQUE,
-      github_url TEXT,
+      filename TEXT NOT NULL,
+      github_url TEXT UNIQUE,
       group_id INTEGER,
       sort_order INTEGER DEFAULT 0,
       html_content TEXT NOT NULL,
@@ -43,33 +61,84 @@ function initDatabase() {
     )
   `);
 
-  // Migrate existing tables - add sections_data column if it doesn't exist
   try {
     const columns = db.pragma('table_info(pages)');
     const hasSectionsData = columns.some(col => col.name === 'sections_data');
     
     if (!hasSectionsData) {
-      console.log('📝 Migrating database: Adding sections_data column...');
+      console.log('Migrating database: Adding sections_data column...');
       db.exec('ALTER TABLE pages ADD COLUMN sections_data TEXT');
-      console.log('✅ Migration complete: sections_data column added');
+      console.log('Migration complete: sections_data column added');
     }
   } catch (error) {
-    console.log('ℹ️  Database migration check:', error.message);
+    console.log('Database migration check:', error.message);
   }
 
-  // Create index for better query performance
+  try {
+    const columns = db.pragma('table_info(pages)');
+    const indexes = db.pragma('index_list(pages)');
+    
+    const needsMigration = indexes.some(idx => {
+      const indexInfo = db.pragma(`index_info(${idx.name})`);
+      return indexInfo.some(col => col.name === 'filename');
+    });
+    
+    if (needsMigration) {
+      console.log('Migrating database: Changing UNIQUE constraint from filename to github_url...');
+      
+      db.exec(`
+        CREATE TABLE pages_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          filename TEXT NOT NULL,
+          github_url TEXT UNIQUE,
+          group_id INTEGER,
+          sort_order INTEGER DEFAULT 0,
+          html_content TEXT NOT NULL,
+          sections_data TEXT,
+          preview_image TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL
+        );
+        
+        INSERT INTO pages_new (id, title, filename, github_url, group_id, sort_order, html_content, sections_data, preview_image, created_at, updated_at)
+        SELECT id, title, filename, github_url, group_id, sort_order, html_content, sections_data, preview_image, created_at, updated_at
+        FROM pages;
+        
+        DROP TABLE pages;
+        ALTER TABLE pages_new RENAME TO pages;
+      `);
+      
+      console.log('Migration complete: filename UNIQUE constraint removed, github_url UNIQUE constraint added');
+      console.log('You can now create pages with same filename in different months!');
+    }
+  } catch (error) {
+    console.log('Unique constraint migration check:', error.message);
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS temp_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      image_id TEXT NOT NULL UNIQUE,
+      filename TEXT NOT NULL,
+      image_data TEXT NOT NULL,
+      mime_type TEXT DEFAULT 'image/jpeg',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_pages_group_id ON pages(group_id);
     CREATE INDEX IF NOT EXISTS idx_pages_sort_order ON pages(sort_order);
+    CREATE INDEX IF NOT EXISTS idx_temp_images_image_id ON temp_images(image_id);
   `);
 
-  console.log('✅ Database initialized successfully');
+  console.log('Database initialized successfully');
 }
 
-// Initialize on module load
 initDatabase();
 
-// Group operations
 export const groupOperations = {
   create: db.prepare(`
     INSERT INTO groups (name, description, color)
@@ -85,7 +154,11 @@ export const groupOperations = {
   `),
   
   getById: db.prepare(`
-    SELECT * FROM groups WHERE id = ?
+    SELECT g.*, COUNT(p.id) as page_count
+    FROM groups g
+    LEFT JOIN pages p ON g.id = p.group_id
+    WHERE g.id = ?
+    GROUP BY g.id
   `),
   
   update: db.prepare(`
@@ -157,19 +230,30 @@ export const pageOperations = {
     LEFT JOIN groups g ON p.group_id = g.id
     WHERE p.title LIKE @query OR p.filename LIKE @query
     ORDER BY p.updated_at DESC
+  `),
+  
+  findEmptyContent: db.prepare(`
+    SELECT id, title, filename FROM pages
+    WHERE html_content IS NULL OR html_content = '' OR TRIM(html_content) = ''
+  `),
+  
+  deleteEmptyContent: db.prepare(`
+    DELETE FROM pages
+    WHERE html_content IS NULL OR html_content = '' OR TRIM(html_content) = ''
+  `),
+  
+  deleteAll: db.prepare(`
+    DELETE FROM pages
+  `),
+  
+  resetAutoIncrement: db.prepare(`
+    DELETE FROM sqlite_sequence WHERE name = 'pages'
   `)
 };
 
-// Groups JSON sync operations
 export const groupsJsonOperations = {
-  /**
-   * Export all groups to JSON format
-   * @returns {Object} - Groups data in JSON format
-   */
   exportToJson: () => {
     const groups = groupOperations.getAll.all();
-    
-    // Remove page_count from export (it's a computed field)
     const cleanGroups = groups.map(({ page_count, ...group }) => group);
     
     return {
@@ -179,12 +263,6 @@ export const groupsJsonOperations = {
     };
   },
 
-  /**
-   * Import groups from JSON format
-   * Merges with existing groups based on name (unique constraint)
-   * @param {Object} jsonData - Groups data in JSON format
-   * @returns {Object} - Import statistics
-   */
   importFromJson: (jsonData) => {
     if (!jsonData || !jsonData.groups || !Array.isArray(jsonData.groups)) {
       throw new Error('Invalid JSON format: missing groups array');
@@ -198,15 +276,12 @@ export const groupsJsonOperations = {
       errors: []
     };
 
-    // Use transaction for atomic operations
     const transaction = db.transaction((groups) => {
       for (const group of groups) {
         try {
-          // Check if group exists by name
           const existing = db.prepare('SELECT * FROM groups WHERE name = ?').get(group.name);
           
           if (existing) {
-            // Update existing group
             groupOperations.update.run({
               id: existing.id,
               name: group.name,
@@ -215,7 +290,6 @@ export const groupsJsonOperations = {
             });
             stats.updated++;
           } else {
-            // Create new group
             groupOperations.create.run({
               name: group.name,
               description: group.description || null,
@@ -235,19 +309,10 @@ export const groupsJsonOperations = {
     return stats;
   },
 
-  /**
-   * Get groups as JSON string
-   * @returns {string} - JSON string
-   */
   exportToJsonString: () => {
     return JSON.stringify(groupsJsonOperations.exportToJson(), null, 2);
   },
 
-  /**
-   * Import groups from JSON string
-   * @param {string} jsonString - JSON string
-   * @returns {Object} - Import statistics
-   */
   importFromJsonString: (jsonString) => {
     try {
       const jsonData = JSON.parse(jsonString);
@@ -256,6 +321,48 @@ export const groupsJsonOperations = {
       throw new Error(`Failed to parse JSON: ${error.message}`);
     }
   }
+};
+
+export const tempImageOperations = {
+  save: db.prepare(`
+    INSERT INTO temp_images (image_id, filename, image_data, mime_type)
+    VALUES (@image_id, @filename, @image_data, @mime_type)
+    ON CONFLICT(image_id) DO UPDATE SET
+      filename = @filename,
+      image_data = @image_data,
+      mime_type = @mime_type,
+      created_at = CURRENT_TIMESTAMP
+  `),
+  
+  getById: db.prepare(`
+    SELECT * FROM temp_images WHERE image_id = ?
+  `),
+  
+  getAll: db.prepare(`
+    SELECT * FROM temp_images ORDER BY created_at DESC
+  `),
+  
+  delete: db.prepare(`
+    DELETE FROM temp_images WHERE image_id = ?
+  `),
+  
+  deleteAll: db.prepare(`
+    DELETE FROM temp_images
+  `),
+  
+  deleteOlderThan: db.prepare(`
+    DELETE FROM temp_images 
+    WHERE datetime(created_at) < datetime('now', '-' || ? || ' hours')
+  `),
+  
+  countOlderThan: db.prepare(`
+    SELECT COUNT(*) as count FROM temp_images
+    WHERE datetime(created_at) < datetime('now', '-' || ? || ' hours')
+  `),
+  
+  count: db.prepare(`
+    SELECT COUNT(*) as count FROM temp_images
+  `)
 };
 
 export default db;

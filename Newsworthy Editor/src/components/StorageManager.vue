@@ -144,6 +144,8 @@
           </div>
           <div class="page-info">
             <h4>
+              <span v-if="page.sync_status === 'synced'" class="sync-badge synced" title="Synced: Local + Cloud">☁️</span>
+              <span v-else class="sync-badge local-only" title="Local Only">💾</span>
               {{ page.title }}
               <span v-if="page.sections_data" class="editable-badge" title="Fully Editable">✨</span>
               <span v-else-if="page.html_content && isEditableHtml(page.html_content)" class="convertible-badge" title="Convertible to Editable">🔄</span>
@@ -159,7 +161,6 @@
               <button @click="openPage(page)" class="icon-btn" title="Open">🔗</button>
               <button @click="copyIframeCode(page, $event)" class="icon-btn" title="Copy Iframe Code">📋</button>
               <button @click="editPage(page)" class="icon-btn" title="Edit Content">✏️</button>
-              <button @click="downloadPage(page)" class="icon-btn" title="Download">💾</button>
               <button @click="deletePage(page.id)" class="icon-btn delete" title="Delete">🗑️</button>
             </div>
           </div>
@@ -181,6 +182,8 @@
             <span class="drag-handle">⋮⋮</span>
             <div class="page-main">
               <h4>
+                <span v-if="page.sync_status === 'synced'" class="sync-badge synced" title="Synced: Local + Cloud">☁️</span>
+                <span v-else class="sync-badge local-only" title="Local Only">💾</span>
                 {{ page.title }}
                 <span v-if="page.sections_data" class="editable-badge" title="Fully Editable">✨</span>
                 <span v-else-if="page.html_content && isEditableHtml(page.html_content)" class="convertible-badge" title="Convertible to Editable">🔄</span>
@@ -196,7 +199,6 @@
               <button @click="openPage(page)" class="icon-btn" title="Open">🔗</button>
               <button @click="copyIframeCode(page, $event)" class="icon-btn" title="Copy Iframe Code">📋</button>
               <button @click="editPage(page)" class="icon-btn" title="Edit Content">✏️</button>
-              <button @click="downloadPage(page)" class="icon-btn" title="Download">💾</button>
               <button @click="deletePage(page.id)" class="icon-btn delete" title="Delete">🗑️</button>
             </div>
           </div>
@@ -205,9 +207,16 @@
     </div>
 
     <div v-if="showGroupDialog" class="modal-overlay" @click.self="closeGroupDialog">
-      <div class="modal-content group-manager-modal">
-        <div class="group-manager-header">
-          <h3>Manage Groups</h3>
+      <div class="modal-container group-manager-modal">
+        <div class="modal-header">
+          <div class="header-content">
+            <div class="header-icon">📁</div>
+            <div>
+              <h3>Manage Groups</h3>
+              <p class="modal-subtitle">Organize your pages into groups for better management</p>
+            </div>
+          </div>
+          <button class="modal-close" @click="closeGroupDialog">×</button>
         </div>
         
         <div class="group-form-section">
@@ -263,7 +272,8 @@
         </div>
 
         <div class="modal-footer">
-          <button type="button" @click="closeGroupDialog" class="btn btn-secondary">
+          <button type="button" @click="closeGroupDialog" class="modal-btn modal-btn-cancel">
+            <span class="btn-icon">✕</span>
             Close
           </button>
         </div>
@@ -271,8 +281,18 @@
     </div>
 
     <div v-if="showPageDialog" class="modal-overlay" @click.self="closePageDialog">
-      <div class="modal-content">
-        <h3>Edit Page Metadata</h3>
+      <div class="modal-container page-edit-modal">
+        <div class="modal-header">
+          <div class="header-content">
+            <div class="header-icon">📝</div>
+            <div>
+              <h3>Edit Page Metadata</h3>
+              <p class="modal-subtitle">Update page title, filename, and group settings</p>
+            </div>
+          </div>
+          <button class="modal-close" @click="closePageDialog">×</button>
+        </div>
+        <div class="modal-body">
         <form @submit.prevent="savePage">
           <div class="form-group">
             <label>Title *</label>
@@ -301,16 +321,18 @@
               Open this page in the visual editor to modify its content
             </p>
           </div>
-          
-          <div class="form-actions">
-            <button type="button" @click="closePageDialog" class="btn btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary">
-              Update Metadata
-            </button>
-          </div>
         </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" @click="closePageDialog" class="modal-btn modal-btn-cancel">
+            <span class="btn-icon">✕</span>
+            Cancel
+          </button>
+          <button type="submit" @click="savePage" class="modal-btn modal-btn-confirm">
+            <span class="btn-icon">✓</span>
+            Update Metadata
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -320,6 +342,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useEditorStore } from '../stores/editorStore';
 import { parseHtmlToSections, isEditableHtml } from '../utils/parseHtml';
+import * as dialog from '@/utils/dialog';
+import { showCopyText } from '@/utils/inputModal';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 const editorStore = useEditorStore();
@@ -397,7 +421,9 @@ async function checkGitHubStatus() {
 async function loadGroups() {
   try {
     const response = await fetch(`${API_BASE_URL}/groups`);
-    groups.value = await response.json();
+    const newGroups = await response.json();
+    // Force reactive update by creating a new array instead of direct assignment
+    groups.value = [...newGroups];
   } catch (error) {
     console.error('Failed to load groups:', error);
   }
@@ -474,12 +500,22 @@ async function saveGroup() {
     }
   } catch (error) {
     console.error('Failed to save group:', error);
-    alert('Failed to save group');
+    await dialog.error(error.message || 'An unexpected error occurred. Please try again.', {
+      title: 'Failed to Save Group'
+    });
   }
 }
 
 async function deleteGroup(id) {
-  if (!confirm('Delete this group? Pages in this group will not be deleted.')) {
+  const confirmed = await dialog.danger(
+    'Are you sure you want to delete this group?\n\nPages in this group will not be deleted.',
+    {
+      title: 'Delete Group',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    }
+  );
+  if (!confirmed) {
     return;
   }
   
@@ -491,17 +527,26 @@ async function deleteGroup(id) {
     if (response.ok) {
       await loadGroups();
       await loadPages();
+      await dialog.success('The group has been removed.\n\nPages are still available.', {
+        title: 'Group Deleted',
+        icon: '🗑️'
+      });
     }
   } catch (error) {
     console.error('Failed to delete group:', error);
-    alert('Failed to delete group');
+    await dialog.error(error.message || 'An unexpected error occurred. Please try again.', {
+      title: 'Failed to Delete Group'
+    });
   }
 }
 
 // GitHub Groups Sync Functions
 async function pushGroupsToGitHub() {
   if (!githubConnected.value) {
-    alert('GitHub is not configured. Please configure GitHub settings first.');
+    await dialog.warning('Please configure your GitHub settings first to enable syncing.', {
+      title: 'GitHub Not Configured',
+      icon: '⚠️'
+    });
     return;
   }
 
@@ -515,13 +560,18 @@ async function pushGroupsToGitHub() {
     const result = await response.json();
     
     if (response.ok) {
-      alert('✅ Groups successfully synced to GitHub!');
+      await dialog.success('Your groups have been successfully uploaded to GitHub.', {
+        title: 'Groups Synced to GitHub!',
+        icon: '✅'
+      });
     } else {
       throw new Error(result.error || 'Failed to sync groups');
     }
   } catch (error) {
     console.error('Failed to push groups to GitHub:', error);
-    alert('❌ Failed to push groups to GitHub: ' + error.message);
+    await dialog.error(error.message || 'Unable to upload groups to GitHub. Please try again.', {
+      title: 'Failed to Sync Groups'
+    });
   } finally {
     isSyncingGroups.value = false;
   }
@@ -529,11 +579,23 @@ async function pushGroupsToGitHub() {
 
 async function pullGroupsFromGitHub() {
   if (!githubConnected.value) {
-    alert('GitHub is not configured. Please configure GitHub settings first.');
+    await dialog.warning('Please configure your GitHub settings first to enable syncing.', {
+      title: 'GitHub Not Configured',
+      icon: '⚠️'
+    });
     return;
   }
 
-  if (!confirm('Pull groups from GitHub? This will update your local groups.')) {
+  const confirmed = await dialog.confirm(
+    'Pull groups from GitHub?\n\nThis will update your local groups with the latest data from GitHub.',
+    {
+      title: 'Pull Groups',
+      icon: '📥',
+      confirmText: 'Pull',
+      cancelText: 'Cancel'
+    }
+  );
+  if (!confirmed) {
     return;
   }
 
@@ -550,20 +612,25 @@ async function pullGroupsFromGitHub() {
       await loadGroups();
       
       if (result.stats) {
-        const msg = `✅ Groups synced from GitHub!\n\n` +
-                   `Created: ${result.stats.created}\n` +
-                   `Updated: ${result.stats.updated}\n` +
-                   `Skipped: ${result.stats.skipped}`;
-        alert(msg);
+        const msg = `Created: ${result.stats.created}\nUpdated: ${result.stats.updated}\nSkipped: ${result.stats.skipped}`;
+        await dialog.success(msg, {
+          title: 'Groups Synced from GitHub!',
+          icon: '📥'
+        });
       } else {
-        alert('ℹ️ No groups found on GitHub');
+        await dialog.info('No groups were found in your GitHub repository.', {
+          title: 'No Groups Found',
+          icon: 'ℹ️'
+        });
       }
     } else {
       throw new Error(result.error || 'Failed to pull groups');
     }
   } catch (error) {
     console.error('Failed to pull groups from GitHub:', error);
-    alert('❌ Failed to pull groups from GitHub: ' + error.message);
+    await dialog.error(error.message || 'Unable to download groups from GitHub. Please try again.', {
+      title: 'Failed to Pull Groups'
+    });
   } finally {
     isSyncingGroups.value = false;
   }
@@ -572,7 +639,10 @@ async function pullGroupsFromGitHub() {
 // Smart sync: Export local → Pull GitHub → Merge → Compare → Upload if changed
 async function handleSmartSync() {
   if (!githubConnected.value) {
-    alert('⚠️ GitHub is not configured. Please configure GitHub settings first.');
+    await dialog.warning('Please configure your GitHub settings first to enable syncing.', {
+      title: 'GitHub Not Configured',
+      icon: '⚠️'
+    });
     return;
   }
 
@@ -594,11 +664,14 @@ async function handleSmartSync() {
 
     if (result.action === 'no_change') {
       // No changes - silent success or minimal notification
-      alert('✅ Groups are already in sync');
+      await dialog.success('Your groups are already up to date with GitHub.', {
+        title: 'Already in Sync',
+        icon: '✅'
+      });
     } else if (result.action === 'synced') {
       // Changes were synced
       const stats = result.stats;
-      let msg = '✅ Groups synced successfully!\n\n';
+      let msg = '';
       
       if (stats.import) {
         msg += `Local: ${stats.local} groups\n`;
@@ -612,11 +685,16 @@ async function handleSmartSync() {
         msg += `Total groups: ${stats.merged}`;
       }
       
-      alert(msg);
+      await dialog.success(msg, {
+        title: 'Groups Synced Successfully!',
+        icon: '🔄'
+      });
     }
   } catch (error) {
     console.error('Smart sync failed:', error);
-    alert('❌ Smart sync failed: ' + error.message);
+    await dialog.error(error.message || 'Unable to sync groups with GitHub. Please try again.', {
+      title: 'Sync Failed'
+    });
   } finally {
     isSyncingGroups.value = false;
   }
@@ -645,7 +723,16 @@ async function editHtmlContent() {
     try {
       // Confirm before loading (will clear current editor content)
       if (editorStore.sections.length > 0) {
-        if (!confirm('⚠️ Loading this page will replace your current editor content.\n\nDo you want to continue?')) {
+        const confirmed = await dialog.warning(
+          'Loading this page will replace your current editor content.\n\nDo you want to continue?',
+          {
+            title: 'Replace Editor Content',
+            icon: '⚠️',
+            confirmText: 'Load Page',
+            cancelText: 'Cancel'
+          }
+        );
+        if (!confirmed) {
           return;
         }
       }
@@ -660,18 +747,32 @@ async function editHtmlContent() {
       closeManager();
       
       // Show success message
-      alert(`✅ Page "${page.title}" loaded into editor!\n\nYou can now edit and use the "Update" button to save changes.`);
+      await dialog.success(`"${page.title}" is now ready to edit.\n\nUse the "Update" button to save any changes.`, {
+        title: 'Page Loaded Successfully!',
+        icon: '📄'
+      });
       
     } catch (error) {
       console.error('Failed to load page to editor:', error);
-      alert('❌ Failed to load page into editor');
+      await dialog.error(error.message || 'An unexpected error occurred. Please try again.', {
+        title: 'Failed to Load Page'
+      });
     }
   } else if (page.html_content && isEditableHtml(page.html_content)) {
     // Try to parse HTML and convert to sections
     try {
       // Confirm before loading
       if (editorStore.sections.length > 0) {
-        if (!confirm('⚠️ This page will be converted from HTML to editable format.\n\nThis will replace your current editor content.\n\nDo you want to continue?')) {
+        const confirmed = await dialog.warning(
+          'This page will be converted from HTML to editable format.\n\nThis will replace your current editor content.\n\nDo you want to continue?',
+          {
+            title: 'Convert HTML Page',
+            icon: '🔄',
+            confirmText: 'Convert & Load',
+            cancelText: 'Cancel'
+          }
+        );
+        if (!confirmed) {
           return;
         }
       }
@@ -693,15 +794,22 @@ async function editHtmlContent() {
       closeManager();
       
       // Show success message
-      alert(`✅ Page "${page.title}" converted and loaded into editor!\n\n${sections.length} section(s) were recovered from the HTML.\n\nYou can now edit and use the "Update" button to save changes.`);
+      await dialog.success(`"${page.title}" converted successfully!\n\n${sections.length} section(s) were recovered from the HTML.\n\nYou can now edit and use the "Update" button to save changes.`, {
+        title: 'Conversion Complete',
+        icon: '🔄'
+      });
       
     } catch (error) {
       console.error('Failed to parse HTML:', error);
-      alert(`❌ Unable to convert this page to editable format.\n\nError: ${error.message}\n\nThis page cannot be edited in the visual editor.`);
+      await dialog.error(`Error: ${error.message}\n\nThis page cannot be edited in the visual editor. Try downloading it instead.`, {
+        title: 'Unable to Convert Page'
+      });
     }
   } else {
     // No sections data and HTML is not editable
-    alert('❌ This page does not have editable HTML content.\n\nOnly pages created in the visual editor can be edited.');
+    await dialog.error('This page doesn\'t have editable content.\n\nOnly pages created in the visual editor can be edited.', {
+      title: 'Page Not Editable'
+    });
   }
 }
 
@@ -715,16 +823,31 @@ async function savePage() {
     
     if (response.ok) {
       await loadPages();
+      await loadGroups(); // Reload group list to update page count
       closePageDialog();
+      await dialog.success(`"${pageForm.value.title}" has been saved with your latest changes.`, {
+        title: 'Page Updated Successfully!',
+        icon: '✅'
+      });
     }
   } catch (error) {
     console.error('Failed to save page:', error);
-    alert('Failed to save page');
+    await dialog.error(error.message || 'An unexpected error occurred. Please try again.', {
+      title: 'Failed to Update Page'
+    });
   }
 }
 
 async function deletePage(id) {
-  if (!confirm('Delete this page? This will also remove it from GitHub Pages.')) {
+  const confirmed = await dialog.danger(
+    'Are you sure you want to delete this page?\n\nThis will remove it from both your database and GitHub Pages.',
+    {
+      title: 'Delete Page',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    }
+  );
+  if (!confirmed) {
     return;
   }
   
@@ -735,36 +858,53 @@ async function deletePage(id) {
     
     if (response.ok) {
       await loadPages();
+      await loadGroups(); // Reload group list to update page count
+      await dialog.success('The page has been removed from your database and GitHub Pages.', {
+        title: 'Page Deleted',
+        icon: '🗑️'
+      });
+    } else {
+      // Handle error response
+      const errorData = await response.json();
+      console.error('Failed to delete page:', errorData);
+      
+      let errorMessage = errorData.details || errorData.error || 'An unexpected error occurred.';
+      if (errorData.suggestion) {
+        errorMessage += '\n\n' + errorData.suggestion;
+      }
+      
+      await dialog.error(errorMessage, {
+        title: 'Failed to Delete Page'
+      });
     }
   } catch (error) {
     console.error('Failed to delete page:', error);
-    alert('Failed to delete page');
+    await dialog.error(error.message || 'An unexpected error occurred. Please try again.', {
+      title: 'Failed to Delete Page'
+    });
   }
 }
 
-function openPage(page) {
+async function openPage(page) {
   const fullUrl = buildGitHubUrl(page.github_url);
   if (fullUrl) {
     window.open(fullUrl, '_blank');
   } else {
-    alert('GitHub URL not available');
+    await dialog.warning('This page hasn\'t been published to GitHub Pages yet.\n\nSave it first to get a live URL.', {
+      title: 'Page Not Published Yet',
+      icon: '⚠️'
+    });
   }
 }
 
-function downloadPage(page) {
-  const blob = new Blob([page.html_content], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = page.filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 async function copyIframeCode(page, event) {
   const fullUrl = buildGitHubUrl(page.github_url);
   if (!fullUrl) {
-    alert('GitHub URL not available for this page');
+    await dialog.warning('This page hasn\'t been published to GitHub Pages yet.\n\nSave it first to get an embed code.', {
+      title: 'Page Not Published Yet',
+      icon: '⚠️'
+    });
     return;
   }
   
@@ -795,7 +935,7 @@ async function copyIframeCode(page, event) {
     }, 2000);
   } catch (error) {
     console.error('Failed to copy iframe code:', error);
-    prompt('Copy this iframe code:', iframeCode);
+    showCopyText(iframeCode, 'Copy Iframe Code');
   }
 }
 
@@ -1003,13 +1143,20 @@ const generateSingleThumbnail = async (pageId) => {
     
     if (successCount > 0) {
       await loadPages();
-      alert('✅ Thumbnail generated successfully!');
+      await dialog.success('Preview image has been created successfully.', {
+        title: 'Thumbnail Generated!',
+        icon: '🖼️'
+      });
     } else {
-      alert('❌ Failed to generate thumbnail. Please check console for errors.');
+      await dialog.error('Please check the console for more details.', {
+        title: 'Failed to Generate Thumbnail'
+      });
     }
   } catch (error) {
     console.error('Error generating thumbnail:', error);
-    alert('❌ Failed to generate thumbnail.');
+    await dialog.error(error.message || 'An unexpected error occurred.', {
+      title: 'Failed to Generate Thumbnail'
+    });
   }
 };
 
@@ -1025,17 +1172,23 @@ const generateAllThumbnails = async () => {
     .map(p => p.id);
 
   if (pagesNeedingThumbnails.length === 0) {
-    alert('✅ All pages already have thumbnails!');
+    await dialog.success('All your pages already have thumbnails.', {
+      title: 'All Set!',
+      icon: '✅'
+    });
     return;
   }
 
   // Show loading message
   isGeneratingThumbnails.value = true;
-  const confirmGenerate = confirm(
-    `🖼️ Found ${pagesNeedingThumbnails.length} page(s) without thumbnails.\n\n` +
-    `⏳ Generating all thumbnails may take up to 30 seconds.\n` +
-    `Please be patient and do not close this window.\n\n` +
-    `Continue?`
+  const confirmGenerate = await dialog.confirm(
+    `Found ${pagesNeedingThumbnails.length} page(s) without thumbnails.\n\nGenerating all thumbnails may take up to 30 seconds.\nPlease be patient and do not close this window.\n\nContinue?`,
+    {
+      title: 'Generate Thumbnails',
+      icon: '🖼️',
+      confirmText: 'Generate',
+      cancelText: 'Cancel'
+    }
   );
 
   if (!confirmGenerate) {
@@ -1051,14 +1204,15 @@ const generateAllThumbnails = async () => {
     await loadPages();
     
     // Show result
-    alert(
-      `🎉 Thumbnail generation complete!\n\n` +
-      `✅ Successfully generated: ${successCount}\n` +
-      `❌ Failed: ${errorCount}`
-    );
+    await dialog.success(`Successfully generated: ${successCount}\nFailed: ${errorCount}`, {
+      title: 'Thumbnail Generation Complete!',
+      icon: '🎉'
+    });
   } catch (error) {
     console.error('Error generating thumbnails:', error);
-    alert('❌ Failed to generate thumbnails. Please check console for errors.');
+    await dialog.error('Please check the console for more details.', {
+      title: 'Failed to Generate Thumbnails'
+    });
   } finally {
     isGeneratingThumbnails.value = false;
   }
@@ -1068,7 +1222,23 @@ const generateAllThumbnails = async () => {
 const handlePullAllFromGitHub = async () => {
   // Check if GitHub is configured
   if (!githubConnected.value) {
-    alert('⚠️ GitHub Pages is not configured!\n\nPlease configure GitHub Pages settings first.')
+    await dialog.warning('Please configure your GitHub Pages settings first.', {
+      title: 'GitHub Pages Not Configured',
+      icon: '⚠️'
+    })
+    return
+  }
+
+  const confirmed = await dialog.confirm(
+    'Pull all pages from GitHub?\n\nThis will download all HTML files from your GitHub repository and save them to the local database.\n\nExisting pages will be updated with the latest content from GitHub.',
+    {
+      title: 'Pull All Pages',
+      icon: '📥',
+      confirmText: 'Pull All',
+      cancelText: 'Cancel'
+    }
+  );
+  if (!confirmed) {
     return
   }
 
@@ -1081,31 +1251,113 @@ const handlePullAllFromGitHub = async () => {
     
     if (!pullResponse.ok) {
       const error = await pullResponse.json()
-      throw new Error(error.error)
+      throw new Error(error.error || error.details || 'Unknown error')
     }
     
     const pullData = await pullResponse.json()
     
     if (!pullData.success) {
-      alert(`❌ Pull failed: ${pullData.message}`)
+      await dialog.error(pullData.message || 'Unable to download pages from GitHub.', {
+        title: 'Pull Failed'
+      })
       return
     }
     
     if (pullData.files.length === 0) {
-      alert('📭 No HTML files found in GitHub repository.')
+      await dialog.info('No HTML files were found in your GitHub repository.', {
+        title: 'No Pages Found',
+        icon: 'ℹ️'
+      })
       return
     }
     
     // Refresh the pages list to show the new content
     await loadPages()
     
-    // Show success message
-    const fileList = pullData.fileTitles.join(', ')
-    alert(`✅ Successfully pulled ${pullData.files.length} files from GitHub!\n\n📄 Files: ${fileList}`)
+    // Auto-generate thumbnails for pages without preview images
+    const pagesNeedingThumbnails = pages.value
+      .filter(p => !p.preview_image && p.html_content)
+      .map(p => p.id)
+    
+    let thumbnailMessage = ''
+    if (pagesNeedingThumbnails.length > 0) {
+      try {
+        const { successCount, errorCount } = await generateThumbnailsForPages(pagesNeedingThumbnails)
+        await loadPages() // Refresh to show new thumbnails
+        thumbnailMessage = `\n\n🖼️ Thumbnails: Generated ${successCount} thumbnails`
+        if (errorCount > 0) {
+          thumbnailMessage += ` (${errorCount} failed)`
+        }
+      } catch (error) {
+        console.error('Failed to auto-generate thumbnails:', error)
+        thumbnailMessage = `\n\n⚠️ Failed to auto-generate thumbnails`
+      }
+    }
+    
+    // Build detailed success message
+    let message = `✅ Successfully pulled ${pullData.files.length} files from GitHub!\n\n`
+    
+    if (pullData.stats) {
+      message += `📊 Statistics:\n`
+      message += `   Total files: ${pullData.stats.total}\n`
+      message += `   Saved: ${pullData.stats.saved}\n`
+      if (pullData.stats.fetchFailed > 0) {
+        message += `   Failed to fetch: ${pullData.stats.fetchFailed}\n`
+      }
+      if (pullData.stats.failed > 0) {
+        message += `   Failed to save: ${pullData.stats.failed}\n`
+      }
+      if (pullData.stats.cleaned > 0) {
+        message += `   🧹 Cleaned up: ${pullData.stats.cleaned} empty pages\n`
+      }
+      message += `\n`
+    }
+    
+    // Show file list (limit to first 10 files)
+    if (pullData.fileTitles && pullData.fileTitles.length > 0) {
+      const displayFiles = pullData.fileTitles.slice(0, 10)
+      message += `📄 Files: ${displayFiles.join(', ')}`
+      if (pullData.fileTitles.length > 10) {
+        message += `, ... and ${pullData.fileTitles.length - 10} more`
+      }
+    }
+    
+    // Add thumbnail generation message
+    message += thumbnailMessage
+    
+    // Show cleaned pages if any
+    if (pullData.cleanedPages && pullData.cleanedPages.length > 0) {
+      message += `\n\n🧹 Cleaned up empty pages:`
+      pullData.cleanedPages.forEach(page => {
+        message += `\n   - ${page.filename} (${page.title})`
+      })
+    }
+    
+    // Show errors if any
+    if (pullData.pullErrors && pullData.pullErrors.length > 0) {
+      message += `\n\n⚠️ Some files failed to fetch from GitHub:`
+      pullData.pullErrors.forEach(err => {
+        message += `\n   - ${err.file}: ${err.error}`
+      })
+    }
+    
+    if (pullData.saveErrors && pullData.saveErrors.length > 0) {
+      message += `\n\n⚠️ Some files failed to save to database:`
+      pullData.saveErrors.forEach(err => {
+        message += `\n   - ${err.file}: ${err.error}`
+      })
+    }
+    
+    await dialog.success(message, {
+      title: `Successfully Pulled ${pullData.files.length} Pages!`,
+      icon: '📥'
+    })
     
   } catch (error) {
-    console.error('Pull all from GitHub error:', error)
-    alert(`❌ Pull failed: ${error.message}`)
+    console.error('❌ Pull all from GitHub error:', error)
+    await dialog.error(error.message || 'Unable to download pages from GitHub. Please try again.', {
+      title: 'Pull Failed'
+    })
   }
 }
 
@@ -1861,19 +2113,182 @@ onMounted(() => {
   color: #6b7280;
 }
 
+/* ===== Modal Base Styles ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-container {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(30px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 2px solid #f3f4f6;
+  background: white;
+  gap: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-subtitle {
+  margin: 6px 0 0 0;
+  font-size: 14px;
+  font-weight: normal;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.header-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+}
+
+.header-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.modal-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+  transform: rotate(90deg);
+}
+
+.modal-body {
+  flex: 1;
+  padding: 24px 28px;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 28px;
+  border-top: 2px solid #f3f4f6;
+  background: #fafafa;
+}
+
+.modal-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.modal-btn-cancel {
+  background: white;
+  border: 2px solid #e5e7eb;
+  color: #374151;
+}
+
+.modal-btn-cancel:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.modal-btn-confirm {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.modal-btn-confirm:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.modal-btn-confirm:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.modal-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #9ca3af !important;
+  box-shadow: none !important;
+}
+
+/* Legacy support */
 .modal-content {
   background: white;
   padding: 24px;
@@ -2145,6 +2560,50 @@ onMounted(() => {
 .metadata-only-badge {
   /* Metadata only - cannot load into editor */
   filter: drop-shadow(0 0 2px rgba(156, 163, 175, 0.5));
+}
+
+/* Sync Status Badges */
+.sync-badge {
+  font-size: 0.9em;
+  margin-right: 6px;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s;
+  cursor: help;
+}
+
+.sync-badge.synced {
+  /* Synced to cloud - both local and cloud */
+  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.6));
+}
+
+.sync-badge.synced:hover {
+  filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.9));
+  transform: scale(1.1);
+}
+
+.sync-badge.local-only {
+  /* Local only - not synced to cloud */
+  filter: drop-shadow(0 0 3px rgba(234, 179, 8, 0.6));
+  opacity: 0.85;
+}
+
+.sync-badge.local-only:hover {
+  filter: drop-shadow(0 0 5px rgba(234, 179, 8, 0.9));
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.sync-badge.cloud-only {
+  /* Cloud only - not in local database (future use) */
+  filter: drop-shadow(0 0 3px rgba(168, 85, 247, 0.6));
+  opacity: 0.85;
+}
+
+.sync-badge.cloud-only:hover {
+  filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.9));
+  transform: scale(1.1);
+  opacity: 1;
 }
 </style>
 

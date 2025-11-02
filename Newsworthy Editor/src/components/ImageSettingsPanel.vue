@@ -60,7 +60,7 @@
       <textarea
         rows="2"
         :value="image.caption || ''"
-        placeholder="Enter caption (optional)…"
+        placeholder="Enter caption (optional)..."
         @input="$emit('updateCaption', $event.target.value)"
       />
     </div>

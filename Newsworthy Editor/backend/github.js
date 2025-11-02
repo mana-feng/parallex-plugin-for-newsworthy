@@ -97,8 +97,64 @@ export async function uploadToGitHub(filename, content, customDate = null) {
 }
 
 /**
+ * Update file at a specific path in GitHub repository
+ * @param {string} filePath - Full path to the file (e.g., "2025/10/article.html")
+ * @param {string} content - New content
+ * @returns {Promise<Object>} - Update result
+ */
+export async function updateFileAtPath(filePath, content) {
+  const octokit = getOctokit();
+  const config = getConfig();
+  
+  if (!octokit || !config) {
+    throw new Error('GitHub is not configured. Please configure GitHub settings first.');
+  }
+
+  const { owner, repo, branch } = config;
+
+  try {
+    // Get current file SHA
+    let sha = null;
+    try {
+      const { data } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: filePath,
+        ref: branch
+      });
+      sha = data.sha;
+    } catch (error) {
+      if (error.status === 404) {
+        throw new Error(`File not found at path: ${filePath}`);
+      }
+      throw error;
+    }
+
+    // Update file
+    const response = await octokit.rest.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      path: filePath,
+      message: `Update ${filePath}`,
+      content: Buffer.from(content).toString('base64'),
+      branch,
+      sha
+    });
+
+    return {
+      url: filePath,
+      commit: response.data.commit.sha,
+      filename: filePath
+    };
+  } catch (error) {
+    console.error('GitHub update error:', error);
+    throw new Error(`Failed to update file at path ${filePath}: ${error.message}`);
+  }
+}
+
+/**
  * Delete file from GitHub repository
- * @param {string} filename - Name of the file to delete
+ * @param {string} filename - Name of the file to delete (can include path)
  * @returns {Promise<void>}
  */
 export async function deleteFromGitHub(filename) {
@@ -403,7 +459,7 @@ export async function syncWithGitHub(filePath, localContent) {
 }
 
 /**
- * Get all HTML files from GitHub with their content
+ * Get all HTML files from GitHub with their content (with batching to avoid API limits)
  * @returns {Promise<Array>} - Array of file objects with content
  */
 export async function getAllFilesFromGitHub() {
@@ -418,42 +474,103 @@ export async function getAllFilesFromGitHub() {
 
   try {
     const files = await getFilesRecursively(octokit, owner, repo, branch, '');
+    console.log(`📥 Found ${files.length} HTML files, fetching content in batches...`);
     
-    // Get content for each file
-    const filesWithContent = await Promise.all(
-      files.map(async (file) => {
-        try {
-          const { data } = await octokit.rest.repos.getContent({
-            owner,
-            repo,
-            path: file.path,
-            ref: branch
-          });
-          
-          const content = Buffer.from(data.content, 'base64').toString('utf-8');
-          
-          return {
-            name: file.name,
-            path: file.path,
-            url: file.path, // Store relative path instead of absolute URL
-            size: file.size,
-            sha: file.sha,
-            content
-          };
-        } catch (error) {
-          console.error(`Failed to get content for ${file.path}:`, error);
-          return {
-            name: file.name,
-            path: file.path,
-            url: file.path, // Store relative path instead of absolute URL
-            size: file.size,
-            sha: file.sha,
-            content: null,
-            error: error.message
-          };
-        }
-      })
-    );
+    // Process files in batches to avoid overwhelming the API
+    const BATCH_SIZE = 5;
+    const filesWithContent = [];
+    
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      console.log(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)} (${batch.length} files)`);
+      
+      const batchResults = await Promise.all(
+        batch.map(async (file) => {
+          try {
+            // Add retry logic for failed requests
+            let retries = 3;
+            let lastError = null;
+            
+            while (retries > 0) {
+              try {
+                const { data } = await octokit.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: file.path,
+                  ref: branch
+                });
+                
+                // Check if content is too large (warning only, no limit)
+                if (data.size > 1000000) { // 1MB
+                  console.warn(`⚠️  File ${file.path} is large (${data.size} bytes, ${(data.size / 1024 / 1024).toFixed(2)} MB)`);
+                }
+                
+                // Decode base64 content
+                let content;
+                try {
+                  content = Buffer.from(data.content, 'base64').toString('utf-8');
+                  
+                  // Verify content was decoded successfully
+                  if (!content || content.length === 0) {
+                    console.error(`❌ Content is empty after decoding for ${file.path}`);
+                    throw new Error('Content is empty after decoding');
+                  }
+                  
+                  console.log(`✅ Decoded ${file.path}: ${content.length} characters`);
+                } catch (decodeError) {
+                  console.error(`❌ Failed to decode content for ${file.path}:`, decodeError.message);
+                  throw decodeError;
+                }
+                
+                console.log(`✅ Fetched ${file.path} (${data.size} bytes)`);
+                
+                return {
+                  name: file.name,
+                  path: file.path,
+                  url: file.path, // Store relative path instead of absolute URL
+                  size: file.size,
+                  sha: file.sha,
+                  content
+                };
+              } catch (error) {
+                lastError = error;
+                retries--;
+                if (retries > 0) {
+                  console.log(`⚠️  Retry ${3 - retries}/3 for ${file.path}...`);
+                  // Wait a bit before retrying
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+              }
+            }
+            
+            // All retries failed
+            throw lastError;
+            
+          } catch (error) {
+            console.error(`❌ Failed to get content for ${file.path}:`, error.message);
+            return {
+              name: file.name,
+              path: file.path,
+              url: file.path,
+              size: file.size,
+              sha: file.sha,
+              content: null,
+              error: error.message
+            };
+          }
+        })
+      );
+      
+      filesWithContent.push(...batchResults);
+      
+      // Small delay between batches to avoid rate limiting
+      if (i + BATCH_SIZE < files.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    const successCount = filesWithContent.filter(f => f.content !== null).length;
+    console.log(`✅ Successfully fetched ${successCount}/${files.length} files`);
 
     return filesWithContent;
   } catch (error) {
@@ -463,12 +580,12 @@ export async function getAllFilesFromGitHub() {
 }
 
 /**
- * Pull all HTML files from GitHub and return them as a single combined content
- * @returns {Promise<Object>} - Combined content and metadata
+ * Pull all HTML files from GitHub (without combining content to avoid memory issues)
+ * @returns {Promise<Object>} - Files array and metadata
  */
 export async function pullAllFromGitHub() {
   try {
-    console.log('Starting pullAllFromGitHub...');
+    console.log('🔄 Starting pullAllFromGitHub...');
     
     // First check if GitHub is configured
     const config = getConfig();
@@ -476,68 +593,211 @@ export async function pullAllFromGitHub() {
       throw new Error('GitHub is not configured');
     }
     
-    console.log('GitHub config found:', { owner: config.owner, repo: config.repo, branch: config.branch });
+    console.log('✓ GitHub config found:', { owner: config.owner, repo: config.repo, branch: config.branch });
     
     const files = await getAllFilesFromGitHub();
-    console.log('Retrieved files from GitHub:', files.length);
+    console.log(`📊 Retrieved ${files.length} files from GitHub`);
     
     if (files.length === 0) {
       return {
         success: true,
         message: 'No HTML files found in GitHub repository',
-        files: [],
-        combinedContent: ''
+        files: []
       };
     }
 
     // Filter out files with errors
     const validFiles = files.filter(file => file.content !== null);
-    console.log('Valid files after filtering:', validFiles.length);
+    const failedFiles = files.filter(file => file.content === null);
+    
+    console.log(`✅ Valid files: ${validFiles.length}`);
+    if (failedFiles.length > 0) {
+      console.warn(`⚠️  Failed to fetch ${failedFiles.length} files:`, failedFiles.map(f => f.path));
+    }
     
     if (validFiles.length === 0) {
       return {
         success: false,
         message: 'No valid HTML files could be loaded',
         files: files,
-        combinedContent: ''
+        errors: failedFiles.map(f => ({ file: f.path, error: f.error }))
       };
     }
 
-    // Combine all HTML content
-    let combinedContent = '';
-    const fileTitles = [];
-    
-    validFiles.forEach((file, index) => {
-      // Use filename without extension as title (more reliable than HTML <title> tag)
-      const title = file.name.replace('.html', '');
-      fileTitles.push(title);
-      
-      // Add separator and content
-      if (index > 0) {
-        combinedContent += '\n\n<!-- ===== SEPARATOR ===== -->\n\n';
-      }
-      combinedContent += `<!-- File: ${file.name} (${file.path}) -->\n`;
-      combinedContent += file.content;
-    });
-
-    console.log('Successfully combined content, length:', combinedContent.length);
+    // Extract file titles
+    const fileTitles = validFiles.map(file => file.name.replace('.html', ''));
 
     return {
       success: true,
       message: `Successfully pulled ${validFiles.length} HTML files`,
       files: validFiles,
       fileTitles: fileTitles,
-      combinedContent: combinedContent
+      failedCount: failedFiles.length,
+      errors: failedFiles.length > 0 ? failedFiles.map(f => ({ file: f.path, error: f.error })) : undefined
     };
 
   } catch (error) {
-    console.error('GitHub pull all error:', error);
+    console.error('❌ GitHub pull all error:', error);
     console.error('Error details:', {
       message: error.message,
       status: error.status,
       response: error.response?.data
     });
     throw new Error(`Failed to pull all files from GitHub: ${error.message}`);
+  }
+}
+
+/**
+ * Check if an image file exists in GitHub repository
+ * @param {string} filename - Image filename
+ * @param {Date} customDate - Optional custom date for folder structure (defaults to now)
+ * @returns {Promise<Object>} - Object with exists flag and sha if exists
+ */
+export async function checkImageExists(filename, customDate = null) {
+  const octokit = getOctokit();
+  const config = getConfig();
+  
+  if (!octokit || !config) {
+    throw new Error('GitHub is not configured. Please configure GitHub settings first.');
+  }
+
+  const { owner, repo, branch } = config;
+
+  try {
+    // Sanitize filename
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9-_.]/g, '-');
+    
+    // Generate date-based folder structure: YYYY/MM/images/
+    const date = customDate || new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const imagePath = `${year}/${month}/images/${sanitizedFilename}`;
+    
+    try {
+      const { data } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: imagePath,
+        ref: branch
+      });
+      
+      return {
+        exists: true,
+        sha: data.sha,
+        path: imagePath,
+        sanitizedFilename
+      };
+    } catch (error) {
+      if (error.status === 404) {
+        return {
+          exists: false,
+          path: imagePath,
+          sanitizedFilename
+        };
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('GitHub check image error:', error);
+    throw new Error(`Failed to check image in GitHub: ${error.message}`);
+  }
+}
+
+/**
+ * Upload image to GitHub repository in YYYY/MM/images/ folder
+ * @param {string} imageData - Base64 image data or data URL
+ * @param {string} filename - Image filename
+ * @param {Date} customDate - Optional custom date for folder structure (defaults to now)
+ * @param {boolean} overwrite - Whether to overwrite if file exists (defaults to false)
+ * @param {string} existingSha - SHA of existing file (required if overwrite is true)
+ * @returns {Promise<Object>} - Upload result with GitHub URL
+ */
+export async function uploadImageToGitHub(imageData, filename, customDate = null, overwrite = false, existingSha = null) {
+  const octokit = getOctokit();
+  const config = getConfig();
+  
+  if (!octokit || !config) {
+    throw new Error('GitHub is not configured. Please configure GitHub settings first.');
+  }
+
+  const { owner, repo, branch, baseUrl } = config;
+
+  try {
+    // Sanitize filename
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9-_.]/g, '-');
+    
+    // Generate date-based folder structure: YYYY/MM/images/
+    const date = customDate || new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const imagePath = `${year}/${month}/images/${sanitizedFilename}`;
+    
+    // Convert data URL to base64 if needed
+    let base64Content = imageData;
+    if (imageData.startsWith('data:')) {
+      // Extract base64 part from data URL
+      const base64Match = imageData.match(/^data:image\/[^;]+;base64,(.+)$/);
+      if (base64Match) {
+        base64Content = base64Match[1];
+      }
+    } else if (imageData.startsWith('blob:')) {
+      throw new Error('Blob URLs must be converted to base64 before upload');
+    }
+    
+    // Check if file already exists
+    let sha = existingSha;
+    if (!sha) {
+      try {
+        const { data } = await octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path: imagePath,
+          ref: branch
+        });
+        sha = data.sha;
+        
+        // If file exists and we're not overwriting, return conflict error
+        if (!overwrite) {
+          return {
+            success: false,
+            conflict: true,
+            exists: true,
+            sha: sha,
+            path: imagePath,
+            sanitizedFilename: sanitizedFilename,
+            message: 'File already exists. Please choose to rename or overwrite.'
+          };
+        }
+      } catch (error) {
+        // File doesn't exist, which is fine
+        if (error.status !== 404) {
+          throw error;
+        }
+      }
+    }
+
+    // Create or update file
+    const response = await octokit.rest.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      path: imagePath,
+      message: sha ? `Update ${sanitizedFilename}` : `Add ${sanitizedFilename}`,
+      content: base64Content,
+      branch,
+      ...(sha && { sha })
+    });
+
+    // Return GitHub Pages URL and relative path
+    return {
+      success: true,
+      url: `${baseUrl}/${imagePath}`,
+      relativePath: imagePath,
+      commit: response.data.commit.sha,
+      filename: sanitizedFilename
+    };
+  } catch (error) {
+    console.error('GitHub image upload error:', error);
+    throw new Error(`Failed to upload image to GitHub: ${error.message}`);
   }
 }
 
