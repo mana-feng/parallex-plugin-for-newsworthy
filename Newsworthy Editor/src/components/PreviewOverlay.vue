@@ -10,7 +10,7 @@
 
         <div class="viewport">
             <div class="device-shell" :style="shellStyle">
-                <iframe class="device-iframe" :srcdoc="htmlForIframe"
+                <iframe class="device-iframe" :src="iframeUrl"
                     sandbox="allow-scripts allow-same-origin allow-popups allow-forms" />
             </div>
         </div>
@@ -18,12 +18,14 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, watch, onUnmounted, computed } from 'vue'
 import { useEditorStore } from '@/stores/editorStore'
 
 const props = defineProps({
     html: { type: String, required: true },
 })
+
+const iframeUrl = ref('')
 
 const emit = defineEmits(['exit'])
 const store = useEditorStore()
@@ -32,52 +34,76 @@ const selectedId = computed({
     set: (id) => store.selectDevice(id)
 })
 
-const htmlForIframe = computed(() => {
+function updateIframe() {
     const mode = store.currentDevice.mode
-    const caps = {
-        pc: '75ch',
-        tablet: '55ch',
-        mobile: '100%',
-    }
+    const caps = { pc: '75ch', tablet: '55ch', mobile: '100%' }
+
+    const viewport =
+        mode === 'pc'
+            ? '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            : mode === 'tablet'
+                ? '<meta name="viewport" content="width=768, initial-scale=1">'
+                : '<meta name="viewport" content="width=375, initial-scale=1">'
+
     const css = `:root{ --device-text-max: ${caps[mode] || '65ch'}; }`
-    return props.html.includes('</head>')
-        ? props.html.replace('</head>', `<style id="device-overrides">${css}</style></head>`)
-        : `<style id="device-overrides">${css}</style>` + props.html
+
+    const finalHtml = props.html.includes('</head>')
+        ? props.html.replace(
+            '</head>',
+            `<style id="device-overrides">${css}</style>${viewport}</head>`
+        )
+        : `${viewport}<style id="device-overrides">${css}</style>` + props.html
+
+    if (iframeUrl.value) URL.revokeObjectURL(iframeUrl.value)
+
+    iframeUrl.value = '/preview-host.html'
+    setTimeout(() => {
+        const iframe = document.querySelector('.device-iframe');
+        iframe?.contentWindow.postMessage({
+            type: "render-html",
+            payload: finalHtml
+        }, '*');
+    }, 100);
+
+}
+
+watch(() => store.currentDevice.mode, updateIframe, { immediate: true })
+watch(() => props.html, updateIframe, { immediate: true })
+
+onUnmounted(() => {
+    if (iframeUrl.value) URL.revokeObjectURL(iframeUrl.value)
 })
 
 const shellStyle = computed(() => {
-    const { w, mode } = store.currentDevice
-    if (mode === 'pc') {
-        return {
-            width: '100%',
-            height: '100%',
-            transform: 'none',
-            boxShadow: 'none',
-            borderRadius: '0',
-            background: 'transparent',
-            padding: '0',
-        }
+    const { mode, w } = store.currentDevice
+
+    const deviceWidths = {
+        pc: '100vw',
+        tablet: '768px',
+        mobile: '375px'
     }
+
     return {
-        width: w + 'px',
+        width: deviceWidths[mode] || '100vw',
         height: '100vh',
-        transform: 'none',
-        boxShadow: '0 12px 48px rgba(0,0,0,.45)',
-        borderRadius: '16px',
-        background: '#000',
-        padding: '18px',
+        border: 'none',
+        margin: '0 auto',
+        boxShadow: 'none',
+        background: '#fff',
+        display: 'block',
+        transition: 'width 0.3s ease',
     }
 })
 
 function exportHtml() {
-  const content = props.html
-  const blob = new Blob([content], { type: 'text/html' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'preview.html'
-  a.click()
-  URL.revokeObjectURL(url)
+    const content = props.html
+    const blob = new Blob([content], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'preview.html'
+    a.click()
+    URL.revokeObjectURL(url)
 }
 
 </script>
@@ -90,35 +116,73 @@ function exportHtml() {
     display: grid;
     grid-template-rows: auto 1fr;
     gap: 8px;
-    background: #0b0e14e6;
+    background: rgba(255, 255, 255, 0.9);
 }
 
+/* top */
 .toolbar {
     display: flex;
-    gap: 8px;
     align-items: center;
-    padding: 10px;
-    background: #11141a;
-    color: #e5e7eb;
-    border-bottom: 1px solid #222;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #f6d4d4;
+    color: #333;
+    border-bottom: 1px solid #dca4a4;
+    font-size: 14px;
 }
 
+.toolbar button,
+.toolbar select,
+.toolbar input[type="range"] {
+    border: 1px solid #dca4a4;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #b91c1c;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+/* hover */
+.toolbar button:hover,
+.toolbar select:hover,
+.toolbar input[type="range"]:hover {
+    background: #fee2e2;
+    border-color: #c77a7a;
+}
+
+/* select */
+.toolbar select {
+    appearance: none;
+    padding-right: 24px;
+}
+
+/* slider */
+.toolbar input[type="range"] {
+    accent-color: #c77a7a;
+    cursor: pointer;
+}
+
+/* viewport */
 .viewport {
     position: relative;
-    background: #0f131a;
+    background: #fafafa;
+    width: 100%;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: auto;
+    overflow: hidden;
 }
 
+/* iframe */
 .device-iframe {
     width: 100%;
     height: 100%;
-    border: 0;
+    border: none;
     background: #fff;
-    border-radius: 12px;
     display: block;
 }
 </style>

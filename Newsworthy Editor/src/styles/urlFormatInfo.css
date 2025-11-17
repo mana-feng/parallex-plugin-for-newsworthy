@@ -1,0 +1,93 @@
+/* URL Format Info Styles
+ * Shared styles for displaying supported URL formats in modals
+ * Used by: AddVideoBlockButton, SideBar (image block)
+ */
+
+/* Info Section Container */
+.url-format-info-section {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 2px solid #bae6fd;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+/* Info Header */
+.url-format-info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #7dd3fc;
+}
+
+.url-format-info-icon {
+  font-size: 18px;
+  line-height: 1;
+  animation: urlFormatGlow 2s ease-in-out infinite;
+}
+
+@keyframes urlFormatGlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.url-format-info-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #075985;
+}
+
+/* Format List */
+.url-format-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.url-format-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #bae6fd;
+  transition: all 0.2s ease;
+}
+
+.url-format-item:hover {
+  border-color: #7dd3fc;
+  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.15);
+  transform: translateX(4px);
+}
+
+.url-format-icon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.url-format-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.url-format-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0c4a6e;
+  margin-bottom: 3px;
+}
+
+.url-format-example {
+  font-size: 11px;
+  color: #0369a1;
+  font-family: 'Monaco', 'Courier New', monospace;
+  word-break: break-all;
+  background: rgba(224, 242, 254, 0.5);
+  padding: 3px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+

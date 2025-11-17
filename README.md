@@ -3,6 +3,8 @@
 An immersive long-form multimedia article editor for creating visually rich, scrollable web stories. Design magazine-quality articles with sections, text, images, and videos, then publish directly to GitHub Pages.
 
 > **中文文档**: 查看 [README-CN.md](README-CN.md) 获取完整的中文使用指南
+> 
+> **📚 Full Documentation**: See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for comprehensive technical documentation including API endpoints, architecture details, and developer guide.
 
 ---
 
@@ -44,7 +46,7 @@ An immersive long-form multimedia article editor for creating visually rich, scr
 1. **Clone the repository**
 ```bash
 git clone <repository-url>
-cd capstone-project-25t3-9900-h18e-almond-functions
+cd capstone-project-25t3-9900-h18e-almond-main
 ```
 
 2. **Install dependencies**

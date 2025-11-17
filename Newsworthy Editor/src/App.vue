@@ -22,14 +22,14 @@ onMounted(() => {
   if (inputModalRef.value) {
     setInputModalInstance(inputModalRef.value)
   } else {
-    console.error('❌ InputModal ref is null!')
+    console.error('InputModal ref is null')
   }
   
   // Initialize global dialog instance
   if (customDialogRef.value) {
     registerDialog(customDialogRef.value)
   } else {
-    console.error('❌ CustomDialog ref is null!')
+    console.error('CustomDialog ref is null')
   }
 })
 </script>

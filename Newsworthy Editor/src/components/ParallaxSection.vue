@@ -5,7 +5,7 @@
     
     <div class="parallax-header">
       <h3>⇅ Parallax Section (Scrollytelling)</h3>
-      <button class="add-slide-btn" @click.stop="addSlide">+ Add Slide</button>
+      <AddSlideButton :section="section" />
     </div>
 
     <div class="slides-container">
@@ -37,14 +37,14 @@
             </label>
           </div>
           <div v-if="slide.bgImg" class="bg-preview">
-            <img :src="slide.bgImg" alt="Background preview" />
+            <img :src="getSlideBgDisplayUrl(slide.bgImg, index)" alt="Background preview" />
           </div>
         </div>
 
         <div class="slide-content">
           <div class="content-header">
             <label>Content:</label>
-            <button @click.stop="addTextToSlide(index)" class="add-content-btn">+ Add Text</button>
+            <AddTextToSlideButton :section="section" :slideIndex="index" />
           </div>
           
           <div v-for="blk in slide.blocks" :key="blk.id" class="content-block"
@@ -69,6 +69,11 @@
 <script setup>
 import { useEditorStore } from '../stores/editorStore'
 import TipTapBlock from './TipTapBlock.vue'
+import * as parallaxService from '@/services/parallaxService'
+import { localToLocalhost } from '@/utils/imageUrlUtils'
+import { ref, watch } from 'vue'
+import AddSlideButton from './add/AddSlideButton.vue'
+import AddTextToSlideButton from './add/AddTextToSlideButton.vue'
 
 const props = defineProps({
   section: {
@@ -79,122 +84,31 @@ const props = defineProps({
 
 const store = useEditorStore()
 
-const addSlide = () => {
-  props.section.slides.push({
-    id: Date.now(),
-    bgImg: '',
-    sourceType: 'url',
-    _blobUrl: '',
-    blocks: []
-  })
+// Function to get display URL for slide background images (local:// format)
+function getSlideBgDisplayUrl(url, slideIndex) {
+  if (!url || typeof url !== 'string') return url
+  
+  // For local:// URLs, convert synchronously
+  return localToLocalhost(url)
 }
 
 const removeSlide = (index) => {
-  if (props.section.slides.length <= 1) return
-  
-  // Revoke blob URL if exists
-  const slide = props.section.slides[index]
-  if (slide._blobUrl && slide._blobUrl.startsWith('blob:')) {
-    try { URL.revokeObjectURL(slide._blobUrl) } catch { }
-  }
-  
-  props.section.slides.splice(index, 1)
+  parallaxService.removeSlide(props.section, index)
 }
 
 const updateSlideBg = (index, url) => {
-  const slide = props.section.slides[index]
-  if (!slide) return
-  
-  slide.bgImg = url
-  slide.sourceType = 'url'
+  parallaxService.updateSlideBg(props.section, index, url)
 }
 
 const handleUploadBg = async (index, event) => {
   const file = event.target.files?.[0]
   if (!file) return
   
-  const slide = props.section.slides[index]
-  if (!slide) return
-  
-  // Revoke old blob URL
-  if (slide._blobUrl && slide._blobUrl.startsWith('blob:')) {
-    try { URL.revokeObjectURL(slide._blobUrl) } catch { }
-  }
-  
-  try {
-    // Read file as data URL
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const dataUrl = e.target.result
-      
-      try {
-        // Save to local database first (for preview)
-        const response = await fetch('http://localhost:3001/api/images/temp/save', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            imageData: dataUrl,
-            filename: file.name
-          })
-        })
-        
-        if (!response.ok) {
-          throw new Error('Failed to save image to local database')
-        }
-        
-        const result = await response.json()
-        
-        // Use local URL for preview (will be uploaded to GitHub on publish)
-        slide.bgImg = result.localUrl
-        slide.sourceType = 'local'
-        slide._blobUrl = ''
-        console.log(`Parallax background saved locally: ${result.localUrl}`)
-      } catch (saveError) {
-        console.error('Local save failed:', saveError)
-        // Fallback: use data URL directly
-        slide.bgImg = dataUrl
-        slide.sourceType = 'upload'
-        slide._blobUrl = dataUrl
-      }
-    }
-    
-    reader.onerror = () => {
-      // Fallback: use blob URL if reading fails
-      const blobUrl = URL.createObjectURL(file)
-      slide.bgImg = blobUrl
-      slide.sourceType = 'upload'
-      slide._blobUrl = blobUrl
-    }
-    
-    reader.readAsDataURL(file)
-  } catch (error) {
-    console.error('Parallax background upload error:', error)
-    // Fallback: use blob URL
-    const blobUrl = URL.createObjectURL(file)
-    slide.bgImg = blobUrl
-    slide.sourceType = 'upload'
-    slide._blobUrl = blobUrl
-  }
-}
-
-const addTextToSlide = (slideIndex) => {
-  const slide = props.section.slides[slideIndex]
-  if (!slide) return
-  
-  slide.blocks.push({
-    id: Date.now(),
-    type: 'text',
-    html: '<p>Enter your text here...</p>',
-  })
+  await parallaxService.handleUploadBg(props.section, index, file)
 }
 
 const removeBlockFromSlide = (slideIndex, blockId) => {
-  const slide = props.section.slides[slideIndex]
-  if (!slide) return
-  
-  slide.blocks = slide.blocks.filter(b => b.id !== blockId)
+  parallaxService.removeBlockFromSlide(props.section, slideIndex, blockId)
 }
 
 const selectSlideBlock = (slideId, blockId, slideIndex) => {
@@ -206,6 +120,7 @@ const selectSlideBlock = (slideId, blockId, slideIndex) => {
     blockId: blockId
   }
 }
+
 </script>
 
 <style scoped>

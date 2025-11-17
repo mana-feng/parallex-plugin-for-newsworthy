@@ -1,28 +1,21 @@
-# Node modules
+
 node_modules/
 
-# Vue global types
-.vue-global-types/
-
-# Logs
-*.log
-npm-debug.log*
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Editor directories
-.vscode/
-.idea/
-
-# Environment files
-.env.local
-
-# Build output
 dist/
 dist-ssr/
 
-# SQLite temporary files
+.env
+.env.local
+.env.*.local
+
 *.sqlite-shm
 *.sqlite-wal
+
+*.log
+npm-debug.log*
+
+.DS_Store
+
+.vite/
+
+.eslintcache

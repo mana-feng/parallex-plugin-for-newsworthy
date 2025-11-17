@@ -8,6 +8,9 @@ const __dirname = path.dirname(__filename);
 
 const db = new Database(path.join(__dirname, 'database.sqlite'));
 
+// Enable WAL mode for consistency with database.js
+db.pragma('journal_mode = WAL');
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,

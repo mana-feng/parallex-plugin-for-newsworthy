@@ -123,8 +123,8 @@ defineExpose({
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(26, 35, 50, 0.7);
+  backdrop-filter: blur(8px);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -134,14 +134,12 @@ defineExpose({
 
 /* Container */
 .dialog-container {
-  background: white;
-  border-radius: 20px;
+  background: var(--nw-surface);
+  border-radius: var(--nw-radius-lg);
   padding: 32px;
   max-width: 480px;
   width: 100%;
-  box-shadow: 
-    0 20px 60px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--nw-shadow-xl);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -207,14 +205,14 @@ defineExpose({
 .dialog-title {
   font-size: 24px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--nw-text-primary);
   margin: 0 0 12px 0;
   line-height: 1.3;
 }
 
 .dialog-message {
   font-size: 16px;
-  color: #6b7280;
+  color: var(--nw-text-secondary);
   margin: 0;
   line-height: 1.6;
   white-space: pre-line;
@@ -230,7 +228,7 @@ defineExpose({
 .dialog-button {
   flex: 1;
   padding: 14px 24px;
-  border-radius: 12px;
+  border-radius: var(--nw-radius-md);
   font-size: 16px;
   font-weight: 600;
   border: none;
@@ -260,14 +258,14 @@ defineExpose({
 }
 
 .dialog-button-cancel {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--nw-surface-hover);
+  color: var(--nw-text-secondary);
 }
 
 .dialog-button-cancel:hover {
-  background: #e5e7eb;
+  background: var(--nw-border);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--nw-shadow-sm);
 }
 
 .dialog-button-cancel:active {
@@ -275,13 +273,13 @@ defineExpose({
 }
 
 .dialog-button-confirm {
-  color: white;
+  color: var(--nw-text-light);
   position: relative;
 }
 
 .dialog-button-confirm:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--nw-shadow-md);
 }
 
 .dialog-button-confirm:active {
@@ -294,23 +292,22 @@ defineExpose({
 
 /* Button types */
 .dialog-button-confirm.dialog-button-confirm {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--nw-accent);
 }
 
 .dialog-button-confirm.dialog-button-alert {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--nw-accent-teal);
 }
 
 .dialog-button-confirm.dialog-button-warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: var(--nw-accent-gold);
 }
 
 .dialog-button-confirm.dialog-button-danger {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-}
+  background: var(--nw-accent-red);}
 
 .dialog-button-confirm.dialog-button-success {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: var(--nw-accent-green);
 }
 
 /* Animations */

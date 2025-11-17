@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preview Host</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script>
+        window.addEventListener("message", (event) => {
+            if (!event.data || event.data.type !== "render-html") return;
+
+            const html = event.data.payload;
+
+            document.open();
+            document.write(html);
+            document.close();
+        });
+    </script>
+</body>
+
+</html>

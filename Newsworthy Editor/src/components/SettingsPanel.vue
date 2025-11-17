@@ -150,6 +150,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import * as dialog from '@/utils/dialog'
+import { getGitHubSettings, saveGitHubSettings, testGitHubConnection } from '@/services/apiService'
 
 const emit = defineEmits(['close'])
 
@@ -166,25 +167,20 @@ const testing = ref(false)
 const saving = ref(false)
 const testResult = ref(null)
 
-const API_BASE = 'http://localhost:3001/api'
-
 onMounted(async () => {
   await loadCurrentConfig()
 })
 
 const loadCurrentConfig = async () => {
   try {
-    const response = await fetch(`${API_BASE}/settings/github`)
-    if (response.ok) {
-      const data = await response.json()
-      if (data.configured) {
-        currentConfig.value = data.config
-        // Pre-fill form with current values (except token for security)
-        formData.value.owner = data.config.owner
-        formData.value.repo = data.config.repo
-        formData.value.branch = data.config.branch
-        formData.value.baseUrl = data.config.baseUrl || ''
-      }
+    const result = await getGitHubSettings()
+    if (result.ok && result.data.configured) {
+      currentConfig.value = result.data.config
+      // Pre-fill form with current values (except token for security)
+      formData.value.owner = result.data.config.owner
+      formData.value.repo = result.data.config.repo
+      formData.value.branch = result.data.config.branch
+      formData.value.baseUrl = result.data.config.baseUrl || ''
     }
   } catch (error) {
     console.error('Failed to load current config:', error)
@@ -196,15 +192,9 @@ const handleTest = async () => {
   testing.value = true
 
   try {
-    const response = await fetch(`${API_BASE}/settings/github/test`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData.value)
-    })
-
-    const data = await response.json()
+    const result = await testGitHubConnection(formData.value)
     
-    if (response.ok && data.success) {
+    if (result.ok && result.data.success) {
       testResult.value = {
         success: true,
         message: 'Connection successful! GitHub API is working correctly.'
@@ -212,7 +202,7 @@ const handleTest = async () => {
     } else {
       testResult.value = {
         success: false,
-        message: `Connection failed: ${data.error || 'Unknown error'}`
+        message: `Connection failed: ${result.data?.error || result.error || 'Unknown error'}`
       }
     }
   } catch (error) {
@@ -230,15 +220,9 @@ const handleSave = async () => {
   saving.value = true
 
   try {
-    const response = await fetch(`${API_BASE}/settings/github`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData.value)
-    })
+    const result = await saveGitHubSettings(formData.value)
 
-    const data = await response.json()
-
-    if (response.ok) {
+    if (result.ok) {
       await dialog.success('Your GitHub Pages settings have been saved successfully!', {
         title: 'Settings Saved',
         icon: '✓'
@@ -247,7 +231,7 @@ const handleSave = async () => {
       // Clear token field for security
       formData.value.token = ''
     } else {
-      await dialog.error(data.error, {
+      await dialog.error(result.error, {
         title: 'Failed to Save Settings'
       })
     }
@@ -259,6 +243,7 @@ const handleSave = async () => {
     saving.value = false
   }
 }
+
 </script>
 
 <style scoped>
@@ -579,5 +564,6 @@ const handleSave = async () => {
   font-size: 14px;
   margin: 0;
 }
+
 </style>
 

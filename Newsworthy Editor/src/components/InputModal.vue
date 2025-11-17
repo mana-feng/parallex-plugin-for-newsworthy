@@ -78,7 +78,7 @@ const props = defineProps({
   },
   title: {
     type: String,
-    required: true
+    default: 'Input'
   },
   subtitle: {
     type: String,
@@ -298,20 +298,20 @@ function handleEscKey(e) {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(26, 35, 50, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
   padding: 20px;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
 }
 
 /* Modal Container */
 .modal-container {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: var(--nw-surface);
+  border-radius: var(--nw-radius-lg);
+  box-shadow: var(--nw-shadow-xl);
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
@@ -327,12 +327,12 @@ function handleEscKey(e) {
 /* Modal Header */
 .modal-header {
   padding: 24px 24px 20px;
-  border-bottom: 2px solid #f3f4f6;
+  border-bottom: 2px solid var(--nw-border);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  background: linear-gradient(135deg, var(--nw-surface) 0%, var(--nw-surface-hover) 100%);
 }
 
 .header-content {
@@ -358,14 +358,14 @@ function handleEscKey(e) {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--nw-text-primary);
   line-height: 1.3;
 }
 
 .modal-subtitle {
   margin: 4px 0 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--nw-text-secondary);
   line-height: 1.4;
 }
 
@@ -373,7 +373,7 @@ function handleEscKey(e) {
   background: none;
   border: none;
   font-size: 32px;
-  color: #9ca3af;
+  color: var(--nw-text-muted);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -381,15 +381,15 @@ function handleEscKey(e) {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: var(--nw-radius-sm);
   transition: all 0.2s ease;
   flex-shrink: 0;
   line-height: 1;
 }
 
 .modal-close:hover {
-  background-color: #f3f4f6;
-  color: #1f2937;
+  background-color: var(--nw-surface-hover);
+  color: var(--nw-text-primary);
   transform: rotate(90deg);
 }
 
@@ -420,9 +420,9 @@ function handleEscKey(e) {
   width: 100%;
   padding: 12px 16px;
   font-size: 15px;
-  border: 2px solid #e5e7eb;
-  border-radius: 10px;
-  background: #ffffff;
+  border: 2px solid var(--nw-border);
+  border-radius: var(--nw-radius-md);
+  background: var(--nw-surface);
   color: #1f2937;
   transition: all 0.2s ease;
   font-family: inherit;
@@ -431,17 +431,17 @@ function handleEscKey(e) {
 
 .input-field:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--nw-accent);
+  box-shadow: 0 0 0 3px var(--nw-accent-transparent);
   background: #ffffff;
 }
 
 .input-field::placeholder {
-  color: #9ca3af;
+  color: var(--nw-text-muted);
 }
 
 .input-field[readonly] {
-  background: #f9fafb;
+  background: var(--nw-surface-hover);
   cursor: default;
   user-select: all;
 }
@@ -462,7 +462,7 @@ function handleEscKey(e) {
 .modal-footer {
   padding: 16px 24px;
   background-color: #fafafa;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--nw-border);
   display: flex;
   gap: 12px;
   justify-content: flex-end;
@@ -472,7 +472,7 @@ function handleEscKey(e) {
   padding: 10px 24px;
   font-size: 15px;
   font-weight: 500;
-  border-radius: 10px;
+  border-radius: var(--nw-radius-md);
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
@@ -484,27 +484,27 @@ function handleEscKey(e) {
 }
 
 .modal-btn-cancel {
-  background: #ffffff;
-  color: #374151;
-  border: 2px solid #e5e7eb;
+  background: var(--nw-surface);
+  color: var(--nw-text-secondary);
+  border: 2px solid var(--nw-border);
 }
 
 .modal-btn-cancel:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
+  background: var(--nw-surface-hover);
+  border-color: var(--nw-border-hover);
   transform: translateY(-1px);
 }
 
 .modal-btn-confirm {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
+  background: var(--nw-accent);
+  color: var(--nw-text-light);
   border: 2px solid transparent;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
 }
 
 .modal-btn-confirm:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
 }
 
 .modal-btn-confirm:disabled {

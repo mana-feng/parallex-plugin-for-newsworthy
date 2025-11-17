@@ -2,6 +2,8 @@
 
 一个沉浸式长篇多媒体文章编辑器，用于创建视觉丰富的可滚动网页故事。设计杂志品质的文章，包含章节、文本、图片和视频，然后直接发布到 GitHub Pages。
 
+> **📚 完整技术文档**: 查看 [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) 获取全面的技术文档，包括 API 端点、架构细节和开发者指南。
+
 ---
 
 ## 📋 目录
@@ -27,7 +29,7 @@
 1. **克隆仓库**
 ```bash
 git clone <repository-url>
-cd capstone-project-25t3-9900-h18e-almond-parallax-effect
+cd capstone-project-25t3-9900-h18e-almond-main
 ```
 
 2. **安装依赖**

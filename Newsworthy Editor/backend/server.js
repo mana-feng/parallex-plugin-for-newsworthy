@@ -1,12 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import cron from 'node-cron';
-import { groupOperations, pageOperations, groupsJsonOperations, tempImageOperations } from './database.js';
+import { groupOperations, pageOperations, tempImageOperations } from './database.js';
 import { 
   uploadToGitHub, 
   deleteFromGitHub, 
   listGitHubFiles, 
-  renameInGitHub,
   validateGitHubConfig,
   testGitHubConfig,
   getFileFromGitHub,
@@ -15,180 +14,31 @@ import {
   pullAllFromGitHub,
   uploadGroupsJson,
   downloadGroupsJson,
-  uploadImageToGitHub,
-  checkImageExists,
-  updateFileAtPath
+  uploadImageToGitHub
 } from './github.js';
+import { setupImageBlockAPI } from './imageBlockAPI.js';
+import { setupParallaxAPI } from './parallaxAPI.js';
+import { 
+  handlePullAllFromGitHub,
+  handleSmartSyncGroups,
+  handleUploadPageToGitHub,
+  handleDeletePage,
+  handlePushGroupsToGitHub,
+  handlePullGroupsFromGitHub
+} from './api/buttonHandlers.js';
+import { addSyncStatusToPage, addSyncStatusToPages } from './api/syncStatusManager.js';
 import { githubConfig } from './config-store.js';
-import crypto from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-// Increase payload size limits to handle large HTML files (e.g., with embedded images)
-// No practical limit - let SQLite handle the size constraints
 app.use(express.json({ limit: '1gb' }));
 app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 
-// ============ HELPER FUNCTIONS ============
 
-async function syncGroupsToGitHub() {
-  try {
-    const config = githubConfig.getConfig();
-    if (!config || !config.token) {
-      console.log('GitHub not configured, skipping groups sync');
-      return;
-    }
+// Button handler functions moved to ./api/buttonHandlers.js
 
-    const jsonString = groupsJsonOperations.exportToJsonString();
-    await uploadGroupsJson(jsonString);
-    console.log('Groups synced to GitHub');
-  } catch (error) {
-    console.error('Failed to sync groups to GitHub:', error.message);
-    throw error;
-  }
-}
-
-async function pullGroupsFromGitHub() {
-  try {
-    const result = await downloadGroupsJson();
-    
-    if (!result.success) {
-      if (result.notFound) {
-        console.log('No groups.json found on GitHub');
-        return { success: true, message: 'No groups found', stats: null };
-      }
-      throw new Error(result.message || 'Failed to download groups');
-    }
-
-    const stats = groupsJsonOperations.importFromJson(result.data);
-    console.log('Groups pulled from GitHub:', stats);
-    
-    return { success: true, stats };
-  } catch (error) {
-    console.error('Failed to pull groups from GitHub:', error.message);
-    throw error;
-  }
-}
-
-async function smartSyncGroups() {
-  try {
-    const config = githubConfig.getConfig();
-    if (!config || !config.token) {
-      throw new Error('GitHub not configured');
-    }
-
-    console.log('Starting smart sync...');
-
-    const localJson = groupsJsonOperations.exportToJson();
-    console.log(`Local groups: ${localJson.groups.length} groups`);
-
-    let githubJson = null;
-    let hasGitHubJson = false;
-    
-    try {
-      const result = await downloadGroupsJson();
-      if (result.success && result.data) {
-        githubJson = result.data;
-        hasGitHubJson = true;
-        console.log(`GitHub groups: ${githubJson.groups.length} groups`);
-      }
-    } catch (error) {
-      console.log('No groups.json on GitHub yet, will create new one');
-      githubJson = { version: '1.0', groups: [] };
-    }
-
-    const mergedGroups = new Map();
-    
-    for (const group of localJson.groups) {
-      mergedGroups.set(group.name, {
-        ...group,
-        source: 'local'
-      });
-    }
-    
-    if (hasGitHubJson && githubJson.groups) {
-      for (const group of githubJson.groups) {
-        if (!mergedGroups.has(group.name)) {
-          mergedGroups.set(group.name, {
-            ...group,
-            source: 'github'
-          });
-        }
-      }
-    }
-
-    const mergedJson = {
-      version: '1.0',
-      exported_at: new Date().toISOString(),
-      groups: Array.from(mergedGroups.values()).map(({ source, ...group }) => group)
-    };
-    
-    console.log(`Merged result: ${mergedJson.groups.length} groups`);
-
-    const needsUpload = !hasGitHubJson || 
-      JSON.stringify(sortGroupsJson(githubJson)) !== JSON.stringify(sortGroupsJson(mergedJson));
-
-    if (!needsUpload) {
-      console.log('No changes detected, skipping upload');
-      return {
-        success: true,
-        action: 'no_change',
-        message: 'Groups are already in sync',
-        stats: {
-          local: localJson.groups.length,
-          github: githubJson?.groups?.length || 0,
-          merged: mergedJson.groups.length
-        }
-      };
-    }
-
-    // Step 5: Upload merged JSON to GitHub
-    console.log('Changes detected, uploading to GitHub...');
-    const mergedJsonString = JSON.stringify(mergedJson, null, 2);
-    await uploadGroupsJson(mergedJsonString);
-    
-    // Step 6: Import merged data back to local database to keep everything in sync
-    const importStats = groupsJsonOperations.importFromJson(mergedJson);
-    
-    console.log('Smart sync completed successfully');
-    
-    return {
-      success: true,
-      action: 'synced',
-      message: 'Groups synced successfully',
-      stats: {
-        local: localJson.groups.length,
-        github: githubJson?.groups?.length || 0,
-        merged: mergedJson.groups.length,
-        import: importStats
-      }
-    };
-
-  } catch (error) {
-    console.error('Smart sync failed:', error.message);
-    throw error;
-  }
-}
-
-/**
- * Helper function to sort groups JSON for comparison
- * Ensures consistent ordering for accurate comparison
- */
-function sortGroupsJson(json) {
-  if (!json || !json.groups) return json;
-  
-  return {
-    version: json.version,
-    groups: [...json.groups].sort((a, b) => {
-      // Sort by name for consistent comparison
-      return a.name.localeCompare(b.name);
-    })
-  };
-}
-
-// ============ API ENDPOINTS ============
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -210,7 +60,6 @@ app.get('/api/github/status', async (req, res) => {
   }
 });
 
-// ============ SETTINGS ENDPOINTS ============
 
 // Get GitHub settings
 app.get('/api/settings/github', (req, res) => {
@@ -295,7 +144,6 @@ app.post('/api/settings/github/test', async (req, res) => {
   }
 });
 
-// ============ GROUP ENDPOINTS ============
 
 // Get all groups
 app.get('/api/groups', (req, res) => {
@@ -373,42 +221,17 @@ app.delete('/api/groups/:id', async (req, res) => {
   }
 });
 
-// Manually sync groups to GitHub
-app.post('/api/groups/sync/push', async (req, res) => {
-  try {
-    await syncGroupsToGitHub();
-    res.json({ success: true, message: 'Groups synced to GitHub successfully' });
-  } catch (error) {
-    console.error('Sync groups to GitHub error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// Button handlers - Groups sync
+app.post('/api/groups/sync/push', handlePushGroupsToGitHub);
+app.post('/api/groups/sync/pull', handlePullGroupsFromGitHub);
+app.post('/api/groups/sync/smart', handleSmartSyncGroups);
 
-// Pull groups from GitHub and update database
-app.post('/api/groups/sync/pull', async (req, res) => {
-  try {
-    const result = await pullGroupsFromGitHub();
-    res.json(result);
-  } catch (error) {
-    console.error('Pull groups from GitHub error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
-// Smart sync groups (export -> pull -> merge -> compare -> upload if changed)
-app.post('/api/groups/sync/smart', async (req, res) => {
-  try {
-    const result = await smartSyncGroups();
-    res.json(result);
-  } catch (error) {
-    console.error('Smart sync groups error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// Setup image block API routes
+setupImageBlockAPI(app, PORT);
+setupParallaxAPI(app);
 
-// ============ IMAGE ENDPOINTS ============
-
-// Upload image to GitHub
+// Upload image to GitHub (legacy endpoint - kept for compatibility)
 app.post('/api/images/upload', async (req, res) => {
   try {
     const { imageData, filename } = req.body;
@@ -434,17 +257,6 @@ app.post('/api/images/upload', async (req, res) => {
   }
 });
 
-// ============ PAGE ENDPOINTS ============
-
-// Helper function to determine sync status
-function getSyncStatus(page) {
-  // Check if page has github_url (synced to cloud)
-  if (page.github_url) {
-    return 'synced'; // Both local and cloud
-  } else {
-    return 'local-only'; // Only in local database
-  }
-}
 
 // Get all pages
 app.get('/api/pages', (req, res) => {
@@ -461,10 +273,7 @@ app.get('/api/pages', (req, res) => {
     }
     
     // Add sync status to each page
-    const pagesWithStatus = pages.map(page => ({
-      ...page,
-      sync_status: getSyncStatus(page)
-    }));
+    const pagesWithStatus = addSyncStatusToPages(pages);
     
     res.json(pagesWithStatus);
   } catch (error) {
@@ -484,10 +293,7 @@ app.get('/api/pages/:id', (req, res) => {
     }
     
     // Add sync status
-    const pageWithStatus = {
-      ...page,
-      sync_status: getSyncStatus(page)
-    };
+    const pageWithStatus = addSyncStatusToPage(page);
     
     res.json(pageWithStatus);
   } catch (error) {
@@ -496,7 +302,7 @@ app.get('/api/pages/:id', (req, res) => {
   }
 });
 
-// Create page and upload to GitHub
+// Create page - save to local database only (no GitHub upload)
 app.post('/api/pages', async (req, res) => {
   try {
     const { title, filename, html_content, sections_data, group_id, preview_image } = req.body;
@@ -507,21 +313,8 @@ app.post('/api/pages', async (req, res) => {
       });
     }
 
-    // Upload to GitHub
-    let githubUrl = null;
-    try {
-      const githubResult = await uploadToGitHub(filename, html_content);
-      githubUrl = githubResult.url;
-      
-      // [TEMP_IMAGE_CLEANUP #1] Clean up temp images after successful GitHub upload (Create Page)
-      const cleanedCount = cleanupTempImagesFromHtml(html_content);
-      if (cleanedCount > 0) {
-        console.log(`Cleaned up ${cleanedCount} temp images after GitHub upload`);
-      }
-    } catch (error) {
-      console.error('GitHub upload failed:', error);
-      // Continue even if GitHub upload fails
-    }
+    // Save to local database only (no GitHub upload)
+    // GitHub upload will be done separately via /api/pages/:id/upload endpoint
 
     // Get max sort order
     const allPages = pageOperations.getAll.all();
@@ -529,11 +322,11 @@ app.post('/api/pages', async (req, res) => {
       ? Math.max(...allPages.map(p => p.sort_order || 0)) 
       : 0;
 
-    // Save to database
+    // Save to database with github_url as null (will be set when uploaded)
     const result = pageOperations.create.run({
       title,
       filename: filename.endsWith('.html') ? filename : `${filename}.html`,
-      github_url: githubUrl,
+      github_url: null, // Will be set when uploaded to GitHub
       group_id: group_id || null,
       sort_order: maxSortOrder + 1,
       html_content,
@@ -542,6 +335,7 @@ app.post('/api/pages', async (req, res) => {
     });
 
     const newPage = pageOperations.getById.get(result.lastInsertRowid);
+    console.log(`Saved page to local database: "${title}" (ID: ${newPage.id})`);
     res.status(201).json(newPage);
   } catch (error) {
     console.error('Create page error:', error);
@@ -549,7 +343,7 @@ app.post('/api/pages', async (req, res) => {
   }
 });
 
-// Update page
+// Update page - save to local database only (no GitHub upload)
 app.put('/api/pages/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -560,77 +354,38 @@ app.put('/api/pages/:id', async (req, res) => {
       return res.status(404).json({ error: 'Page not found' });
     }
 
-    // If filename changed, rename in GitHub
-    let githubUrl = existingPage.github_url;
-    if (filename && filename !== existingPage.filename) {
-      try {
-        // Use github_url (full path) for old file, new filename for new file
-        const githubResult = await renameInGitHub(
-          existingPage.github_url || existingPage.filename, 
-          filename, 
-          html_content || existingPage.html_content
-        );
-        githubUrl = githubResult.url;
-        
-        // [TEMP_IMAGE_CLEANUP #2] Clean up temp images after successful GitHub upload (Rename Page)
-        const cleanedCount = cleanupTempImagesFromHtml(html_content || existingPage.html_content);
-        if (cleanedCount > 0) {
-          console.log(`Cleaned up ${cleanedCount} temp images after GitHub rename`);
-        }
-      } catch (error) {
-        console.error('GitHub rename failed:', error);
-      }
-    } else if (html_content) {
-      // Just update content
-      try {
-        // If github_url exists, update at that specific path to preserve folder structure
-        // Otherwise use uploadToGitHub which will create in current month's folder
-        if (existingPage.github_url) {
-          const githubResult = await updateFileAtPath(
-            existingPage.github_url,
-            html_content
-          );
-          githubUrl = githubResult.url;
-        } else {
-          const githubResult = await uploadToGitHub(
-            existingPage.filename, 
-            html_content
-          );
-          githubUrl = githubResult.url;
-        }
-        
-        // [TEMP_IMAGE_CLEANUP #3] Clean up temp images after successful GitHub upload (Update Page Content)
-        const cleanedCount = cleanupTempImagesFromHtml(html_content);
-        if (cleanedCount > 0) {
-          console.log(`Cleaned up ${cleanedCount} temp images after GitHub update`);
-        }
-      } catch (error) {
-        console.error('GitHub update failed:', error);
-      }
-    }
+    // Update local database only (no GitHub upload)
+    // GitHub upload will be done separately via /api/pages/:id/upload endpoint
+    // Preserve github_url if it exists (it will be updated when re-uploaded)
 
     // Update database
     pageOperations.update.run({
       id: parseInt(id),
       title: title || existingPage.title,
       filename: filename || existingPage.filename,
-      github_url: githubUrl,
+      github_url: existingPage.github_url, // Preserve existing github_url, will be updated on upload
       group_id: group_id !== undefined ? group_id : existingPage.group_id,
       sort_order: sort_order !== undefined ? sort_order : existingPage.sort_order,
       html_content: html_content || existingPage.html_content,
       sections_data: sections_data !== undefined ? (sections_data ? JSON.stringify(sections_data) : null) : existingPage.sections_data,
-      preview_image: preview_image !== undefined ? preview_image : existingPage.preview_image
+      preview_image: preview_image !== undefined ? preview_image : existingPage.preview_image,
+      last_uploaded_at: existingPage.last_uploaded_at // Preserve last_uploaded_at (will be updated when uploaded)
     });
 
     const updatedPage = pageOperations.getById.get(id);
-    res.json(updatedPage);
+    console.log(`Updated page in local database: "${updatedPage.title}" (ID: ${id})`);
+    
+    // Add sync status to response
+    const pageWithStatus = addSyncStatusToPage(updatedPage);
+    
+    res.json(pageWithStatus);
   } catch (error) {
     console.error('Update page error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Update page by filename (for updating from editor)
+// Update page by filename (for updating from editor) - save to local database only
 app.put('/api/pages/by-filename/:filename', async (req, res) => {
   try {
     const { filename } = req.params;
@@ -641,52 +396,30 @@ app.put('/api/pages/by-filename/:filename', async (req, res) => {
       return res.status(404).json({ error: 'Page not found' });
     }
 
-    // Update content in GitHub
-    let githubUrl = existingPage.github_url;
-    if (html_content) {
-      try {
-        // If github_url exists, update at that specific path to preserve folder structure
-        // Otherwise use uploadToGitHub which will create in current month's folder
-        if (existingPage.github_url) {
-          const githubResult = await updateFileAtPath(
-            existingPage.github_url,
-            html_content
-          );
-          githubUrl = githubResult.url;
-        } else {
-          const githubResult = await uploadToGitHub(
-            filename, 
-            html_content
-          );
-          githubUrl = githubResult.url;
-        }
-        
-        // Clean up temp images after successful GitHub upload
-        const cleanedCount = cleanupTempImagesFromHtml(html_content);
-        if (cleanedCount > 0) {
-          console.log(`🗑️  Cleaned up ${cleanedCount} temp images after GitHub update (by filename)`);
-        }
-      } catch (error) {
-        console.error('GitHub update failed:', error);
-        // Continue with database update even if GitHub fails
-      }
-    }
+    // Update local database only (no GitHub upload)
+    // GitHub upload will be done separately via /api/pages/:id/upload endpoint
 
     // Update database
     pageOperations.update.run({
       id: existingPage.id,
       title: title || existingPage.title,
       filename: existingPage.filename,
-      github_url: githubUrl,
+      github_url: existingPage.github_url, // Preserve existing github_url
       group_id: existingPage.group_id,
       sort_order: existingPage.sort_order,
       html_content: html_content || existingPage.html_content,
       sections_data: sections_data !== undefined ? (sections_data ? JSON.stringify(sections_data) : null) : existingPage.sections_data,
-      preview_image: existingPage.preview_image
+      preview_image: existingPage.preview_image,
+      last_uploaded_at: existingPage.last_uploaded_at // Preserve last_uploaded_at (will be updated when uploaded)
     });
 
     const updatedPage = pageOperations.getById.get(existingPage.id);
-    res.json(updatedPage);
+    console.log(`Updated page in local database (by filename): "${updatedPage.title}" (ID: ${existingPage.id})`);
+    
+    // Add sync status to response
+    const pageWithStatus = addSyncStatusToPage(updatedPage);
+    
+    res.json(pageWithStatus);
   } catch (error) {
     console.error('Update page by filename error:', error);
     res.status(500).json({ error: error.message });
@@ -713,47 +446,9 @@ app.post('/api/pages/reorder', (req, res) => {
   }
 });
 
-// Delete page
-app.delete('/api/pages/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const page = pageOperations.getById.get(id);
-    if (!page) {
-      return res.status(404).json({ error: 'Page not found' });
-    }
-
-    // Delete from GitHub - use github_url which contains the full path (e.g., "2025/10/filename.html")
-    let githubDeleteSuccess = true;
-    let githubDeleteError = null;
-    
-    if (page.github_url) {
-      try {
-        await deleteFromGitHub(page.github_url);
-        console.log(`Deleted from GitHub: ${page.github_url}`);
-      } catch (error) {
-        console.error('GitHub delete failed:', error);
-        githubDeleteSuccess = false;
-        githubDeleteError = error.message;
-        // Don't continue if GitHub delete fails - return error to user
-        return res.status(500).json({ 
-          error: 'Failed to delete from GitHub',
-          details: error.message,
-          suggestion: 'The page may have already been deleted from GitHub, or there may be a connection issue. Please check your GitHub repository.'
-        });
-      }
-    }
-
-    // Only delete from database if GitHub delete succeeded (or no github_url)
-    pageOperations.delete.run(id);
-    console.log(`Deleted from database: ${page.title} (ID: ${id})`);
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Delete page error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// Button handlers - Page operations
+app.post('/api/pages/:id/upload', handleUploadPageToGitHub);
+app.delete('/api/pages/:id', handleDeletePage);
 
 // List files from GitHub
 app.get('/api/github/files', async (req, res) => {
@@ -789,136 +484,8 @@ app.get('/api/github/files/all', async (req, res) => {
   }
 });
 
-app.post('/api/github/pull-all', async (req, res) => {
-  try {
-    console.log('🔄 Starting pull-all request...');
-    
-    // NOTE: Groups sync is now handled separately via the Smart Sync button
-    // We don't pull groups here to reduce GitHub API calls and Actions triggers
-    
-    const result = await pullAllFromGitHub();
-    
-    if (!result.success) {
-      console.error('Pull failed:', result.message);
-      return res.json(result);
-    }
-    
-    if (result.files.length === 0) {
-      console.log('No files found');
-      return res.json(result);
-    }
-    
-    console.log(`Saving ${result.files.length} files to database...`);
-    
-    // Clear all existing pages and reset ID counter
-    console.log('Clearing all existing pages...');
-    const deleteResult = pageOperations.deleteAll.run();
-    console.log(`Deleted ${deleteResult.changes} existing pages`);
-    
-    // Reset AUTOINCREMENT counter so IDs start from 1
-    pageOperations.resetAutoIncrement.run();
-    console.log('Reset ID counter - new pages will start from ID 1');
-    
-    // Save each file to database
-    const savedFiles = [];
-    const errors = [];
-    
-    for (const file of result.files) {
-      try {
-        // Use filename without extension as title (more reliable than HTML <title> tag)
-        const title = file.name.replace('.html', '');
-        
-        // DEBUG: Check content before saving
-        console.log(`Processing ${file.name}: content length = ${file.content ? file.content.length : 'NULL'} chars, size = ${file.size} bytes`);
-        
-        if (!file.content || file.content.length === 0) {
-          console.error(`Skipping ${file.name}: content is empty or null`);
-          errors.push({
-            file: file.name,
-            error: 'Content is empty or null'
-          });
-          continue;
-        }
-        
-        // Since we cleared all pages, just create new ones
-        // Sort order is based on the order from GitHub
-        const sortOrder = savedFiles.length + 1;
-        
-        // Create new page
-        const insertResult = pageOperations.create.run({
-          title: title,
-          filename: file.name,
-          github_url: file.path, // Use file.path consistently (e.g., "2025/10/test.html")
-          group_id: null, // No group assigned for pulled files
-          sort_order: sortOrder,
-          html_content: file.content,
-          sections_data: null,
-          preview_image: null
-        });
-        
-        // DEBUG: Verify the page was saved correctly
-        const savedPage = pageOperations.getById.get(insertResult.lastInsertRowid);
-        const savedContentLength = savedPage.html_content ? savedPage.html_content.length : 0;
-        
-        if (savedContentLength === 0) {
-          console.error(`WARNING: Page ${file.name} was saved but html_content is empty! Original content length: ${file.content.length}`);
-        } else {
-          console.log(`Created new page: ${file.name} with ID: ${insertResult.lastInsertRowid} (${file.size} bytes, ${savedContentLength} chars saved)`);
-        }
-        
-        savedFiles.push({
-          name: file.name,
-          title: title,
-          url: file.path, // Use file.path consistently
-          size: file.size
-        });
-        
-      } catch (error) {
-        console.error(`Failed to save file ${file.name}:`, error);
-        errors.push({
-          file: file.name,
-          error: error.message
-        });
-      }
-    }
-    
-    console.log(`Successfully saved ${savedFiles.length}/${result.files.length} files`);
-    
-    // No need to clean up empty pages since we cleared everything at the start
-    
-    // Build response message
-    let message = `Successfully pulled and saved ${savedFiles.length} files from GitHub`;
-    if (result.failedCount > 0) {
-      message += ` (${result.failedCount} files failed to fetch)`;
-    }
-    if (errors.length > 0) {
-      message += ` (${errors.length} files failed to save)`;
-    }
-    
-    // Return success response with saved files info
-    res.json({
-      success: true,
-      message: message,
-      files: savedFiles,
-      fileTitles: savedFiles.map(f => f.title),
-      pullErrors: result.errors,
-      saveErrors: errors.length > 0 ? errors : undefined,
-      stats: {
-        total: result.files.length,
-        saved: savedFiles.length,
-        failed: errors.length,
-        fetchFailed: result.failedCount || 0
-      }
-    });
-    
-  } catch (error) {
-    console.error('GitHub pull all error:', error);
-    res.status(500).json({ 
-      error: 'Failed to pull all files from GitHub',
-      details: error.message 
-    });
-  }
-});
+// Button handlers - GitHub operations
+app.post('/api/github/pull-all', handlePullAllFromGitHub);
 
 // Sync file with GitHub
 app.post('/api/github/sync', async (req, res) => {
@@ -968,24 +535,12 @@ app.post('/api/github/pull', async (req, res) => {
   }
 });
 
-// ============ TEMP IMAGES API ============
-
 /**
- * [TEMP_IMAGE_CLEANUP HELPER] Clean up temp images that are referenced in HTML content
- * Used by cleanup mechanisms #1, #2, #3
- * 
- * Extracts all local:// URLs and deletes them from temp_images table
- * @param {string} htmlContent - HTML content to scan for temp images
- * @returns {number} - Number of temp images cleaned up
- * 
- * Note: This function ONLY cleans up images that are referenced in the HTML.
- * Images that were uploaded but not used will NOT be cleaned by this function.
+ * Clean up temp images from HTML content
  */
 function cleanupTempImagesFromHtml(htmlContent) {
   if (!htmlContent) return 0;
   
-  // Match all local:// URLs in the HTML
-  // Matches: local://uuid or http://localhost:3001/api/images/temp/uuid
   const localUrlPattern = /(?:local:\/\/|http:\/\/localhost:\d+\/api\/images\/temp\/)([a-f0-9-]{36})/gi;
   const matches = htmlContent.matchAll(localUrlPattern);
   
@@ -1014,278 +569,7 @@ function cleanupTempImagesFromHtml(htmlContent) {
   return cleanedCount;
 }
 
-// Save image to local database (for preview before publishing)
-app.post('/api/images/temp/save', async (req, res) => {
-  try {
-    const { imageData, filename } = req.body;
-    
-    if (!imageData || !filename) {
-      return res.status(400).json({ error: 'Image data and filename are required' });
-    }
-
-    // Generate unique image ID
-    const imageId = crypto.randomUUID();
-    
-    // Extract mime type from data URL
-    const mimeMatch = imageData.match(/^data:([^;]+);/);
-    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-    
-    // Save to database
-    tempImageOperations.save.run({
-      image_id: imageId,
-      filename: filename,
-      image_data: imageData,
-      mime_type: mimeType
-    });
-    
-    console.log(`Saved temp image: ${imageId} (${filename})`);
-    
-    // Return HTTP URL that frontend can use to display the image
-    res.json({
-      success: true,
-      imageId: imageId,
-      localUrl: `http://localhost:${PORT}/api/images/temp/${imageId}`,
-      filename: filename
-    });
-  } catch (error) {
-    console.error('Failed to save temp image:', error);
-    res.status(500).json({ 
-      error: 'Failed to save image to local database',
-      details: error.message 
-    });
-  }
-});
-
-// Get image from local database (returns actual image data for <img> tags)
-app.get('/api/images/temp/:imageId', async (req, res) => {
-  try {
-    const { imageId } = req.params;
-    
-    const image = tempImageOperations.getById.get(imageId);
-    
-    if (!image) {
-      return res.status(404).json({ error: 'Image not found' });
-    }
-    
-    // Extract base64 data from data URL
-    const base64Data = image.image_data.replace(/^data:image\/\w+;base64,/, '');
-    const imageBuffer = Buffer.from(base64Data, 'base64');
-    
-    // Set appropriate headers
-    res.setHeader('Content-Type', image.mime_type);
-    res.setHeader('Content-Length', imageBuffer.length);
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-    
-    // Send the image buffer
-    res.send(imageBuffer);
-  } catch (error) {
-    console.error('Failed to get temp image:', error);
-    res.status(500).json({ 
-      error: 'Failed to retrieve image',
-      details: error.message 
-    });
-  }
-});
-
-// Get all temp images
-app.get('/api/images/temp', async (req, res) => {
-  try {
-    const images = tempImageOperations.getAll.all();
-    
-    res.json({
-      success: true,
-      count: images.length,
-      images: images.map(img => ({
-        imageId: img.image_id,
-        filename: img.filename,
-        mimeType: img.mime_type,
-        createdAt: img.created_at,
-        size: Math.round(img.image_data.length / 1024) // KB
-      }))
-    });
-  } catch (error) {
-    console.error('Failed to get temp images:', error);
-    res.status(500).json({ 
-      error: 'Failed to retrieve images',
-      details: error.message 
-    });
-  }
-});
-
-// Batch upload temp images to GitHub
-// Check if image exists in GitHub before upload
-app.post('/api/images/check-conflict', async (req, res) => {
-  try {
-    const { filename, customDate } = req.body;
-    
-    if (!filename) {
-      return res.status(400).json({ error: 'Filename is required' });
-    }
-
-    const result = await checkImageExists(filename, customDate ? new Date(customDate) : null);
-    
-    res.json({
-      exists: result.exists,
-      sha: result.sha,
-      path: result.path,
-      sanitizedFilename: result.sanitizedFilename
-    });
-  } catch (error) {
-    console.error('❌ Check image conflict error:', error);
-    res.status(500).json({ 
-      error: 'Failed to check image conflict',
-      details: error.message 
-    });
-  }
-});
-
-// Upload image to GitHub with conflict handling
-app.post('/api/images/upload-to-github', async (req, res) => {
-  try {
-    const { imageData, filename, overwrite, existingSha } = req.body;
-    
-    if (!imageData || !filename) {
-      return res.status(400).json({ error: 'Image data and filename are required' });
-    }
-
-    const uploadResult = await uploadImageToGitHub(
-      imageData,
-      filename,
-      null, // customDate
-      overwrite || false,
-      existingSha || null
-    );
-
-    if (uploadResult.conflict) {
-      // Return conflict information to frontend
-      return res.status(409).json({
-        conflict: true,
-        exists: true,
-        sha: uploadResult.sha,
-        path: uploadResult.path,
-        sanitizedFilename: uploadResult.sanitizedFilename,
-        message: uploadResult.message
-      });
-    }
-
-    if (uploadResult.success) {
-      res.json({
-        success: true,
-        url: uploadResult.url,
-        relativePath: uploadResult.relativePath,
-        filename: uploadResult.filename
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: uploadResult.message || 'Upload failed'
-      });
-    }
-  } catch (error) {
-    console.error('❌ Image upload error:', error);
-    res.status(500).json({ 
-      error: 'Failed to upload image to GitHub',
-      details: error.message 
-    });
-  }
-});
-
-app.post('/api/images/temp/upload-to-github', async (req, res) => {
-  try {
-    const { imageIds, conflictResolutions } = req.body;
-    
-    if (!imageIds || !Array.isArray(imageIds)) {
-      return res.status(400).json({ error: 'imageIds array is required' });
-    }
-
-    const results = {
-      success: [],
-      failed: [],
-      conflicts: []
-    };
-
-    for (const imageId of imageIds) {
-      try {
-        // Get image from database
-        const image = tempImageOperations.getById.get(imageId);
-        
-        if (!image) {
-          results.failed.push({
-            imageId,
-            error: 'Image not found in database'
-          });
-          continue;
-        }
-
-        // Check if there's a conflict resolution for this image
-        const resolution = conflictResolutions?.[imageId];
-        const overwrite = resolution?.action === 'overwrite';
-        const newFilename = resolution?.action === 'rename' ? resolution.newFilename : image.filename;
-        const existingSha = resolution?.sha;
-
-        // Upload to GitHub
-        const uploadResult = await uploadImageToGitHub(
-          image.image_data,
-          newFilename,
-          null, // customDate
-          overwrite,
-          existingSha
-        );
-
-        if (uploadResult.conflict) {
-          // File exists, need user decision
-          results.conflicts.push({
-            imageId,
-            filename: image.filename,
-            sanitizedFilename: uploadResult.sanitizedFilename,
-            sha: uploadResult.sha,
-            path: uploadResult.path,
-            message: uploadResult.message
-          });
-        } else if (uploadResult.success) {
-          results.success.push({
-            imageId,
-            localUrl: `local://${imageId}`,
-            githubUrl: uploadResult.url,
-            filename: uploadResult.filename
-          });
-
-          // [TEMP_IMAGE_CLEANUP #4] Delete from temp storage after successful batch upload to GitHub
-          tempImageOperations.delete.run(imageId);
-          console.log(`Uploaded and cleaned: ${imageId} -> ${uploadResult.url}`);
-        } else {
-          results.failed.push({
-            imageId,
-            error: uploadResult.message || 'Upload failed'
-          });
-        }
-      } catch (error) {
-        results.failed.push({
-          imageId,
-          error: error.message
-        });
-      }
-    }
-
-    console.log(`Batch upload complete: ${results.success.length} success, ${results.failed.length} failed, ${results.conflicts.length} conflicts`);
-
-    res.json({
-      success: results.conflicts.length === 0,
-      uploaded: results.success.length,
-      failed: results.failed.length,
-      conflicts: results.conflicts.length,
-      results: results
-    });
-  } catch (error) {
-    console.error('Batch upload error:', error);
-    res.status(500).json({ 
-      error: 'Failed to upload images to GitHub',
-      details: error.message 
-    });
-  }
-});
-
-// [TEMP_IMAGE_CLEANUP #5] Delete single temp image (Manual API)
+// Delete single temp image
 app.delete('/api/images/temp/:imageId', async (req, res) => {
   try {
     const { imageId } = req.params;
@@ -1311,26 +595,6 @@ app.delete('/api/images/temp/:imageId', async (req, res) => {
   }
 });
 
-// [TEMP_IMAGE_CLEANUP #6] Clear all temp images (Manual API)
-app.delete('/api/images/temp', async (req, res) => {
-  try {
-    const result = tempImageOperations.deleteAll.run();
-    
-    console.log(`Cleared all temp images: ${result.changes} deleted`);
-    
-    res.json({
-      success: true,
-      deleted: result.changes,
-      message: `Deleted ${result.changes} temp images`
-    });
-  } catch (error) {
-    console.error('Failed to clear temp images:', error);
-    res.status(500).json({ 
-      error: 'Failed to clear images',
-      details: error.message 
-    });
-  }
-});
 
 // [TEMP_IMAGE_CLEANUP #7] Manual trigger for auto cleanup (with configurable age)
 app.post('/api/images/temp/cleanup', async (req, res) => {
@@ -1365,7 +629,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// ============ AUTO CLEANUP SCHEDULER ============
 
 /**
  * Clean up old temp images (older than specified hours)
@@ -1433,6 +696,9 @@ function scheduleAutoCleanup() {
 
 // Start server
 app.listen(PORT, () => {
+  // Store PORT in app locals for use in handlers
+  app.locals.port = PORT;
+  
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`API endpoints available at http://localhost:${PORT}/api`);
   

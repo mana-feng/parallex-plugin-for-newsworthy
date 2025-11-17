@@ -474,7 +474,7 @@ export async function getAllFilesFromGitHub() {
 
   try {
     const files = await getFilesRecursively(octokit, owner, repo, branch, '');
-    console.log(`📥 Found ${files.length} HTML files, fetching content in batches...`);
+    console.log(`Found ${files.length} HTML files, fetching content in batches`);
     
     // Process files in batches to avoid overwhelming the API
     const BATCH_SIZE = 5;
@@ -482,7 +482,7 @@ export async function getAllFilesFromGitHub() {
     
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
-      console.log(`📦 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)} (${batch.length} files)`);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(files.length / BATCH_SIZE)} (${batch.length} files)`);
       
       const batchResults = await Promise.all(
         batch.map(async (file) => {
@@ -502,7 +502,7 @@ export async function getAllFilesFromGitHub() {
                 
                 // Check if content is too large (warning only, no limit)
                 if (data.size > 1000000) { // 1MB
-                  console.warn(`⚠️  File ${file.path} is large (${data.size} bytes, ${(data.size / 1024 / 1024).toFixed(2)} MB)`);
+                  console.warn(`File ${file.path} is large (${data.size} bytes, ${(data.size / 1024 / 1024).toFixed(2)} MB)`);
                 }
                 
                 // Decode base64 content
@@ -512,17 +512,17 @@ export async function getAllFilesFromGitHub() {
                   
                   // Verify content was decoded successfully
                   if (!content || content.length === 0) {
-                    console.error(`❌ Content is empty after decoding for ${file.path}`);
+                    console.error(`Content is empty after decoding for ${file.path}`);
                     throw new Error('Content is empty after decoding');
                   }
                   
-                  console.log(`✅ Decoded ${file.path}: ${content.length} characters`);
+                  console.log(`Decoded ${file.path}: ${content.length} characters`);
                 } catch (decodeError) {
-                  console.error(`❌ Failed to decode content for ${file.path}:`, decodeError.message);
+                  console.error(`Failed to decode content for ${file.path}:`, decodeError.message);
                   throw decodeError;
                 }
                 
-                console.log(`✅ Fetched ${file.path} (${data.size} bytes)`);
+                console.log(`Fetched ${file.path} (${data.size} bytes)`);
                 
                 return {
                   name: file.name,
@@ -536,7 +536,7 @@ export async function getAllFilesFromGitHub() {
                 lastError = error;
                 retries--;
                 if (retries > 0) {
-                  console.log(`⚠️  Retry ${3 - retries}/3 for ${file.path}...`);
+                  console.log(`Retry ${3 - retries}/3 for ${file.path}`);
                   // Wait a bit before retrying
                   await new Promise(resolve => setTimeout(resolve, 1000));
                 }
@@ -547,7 +547,7 @@ export async function getAllFilesFromGitHub() {
             throw lastError;
             
           } catch (error) {
-            console.error(`❌ Failed to get content for ${file.path}:`, error.message);
+            console.error(`Failed to get content for ${file.path}:`, error.message);
             return {
               name: file.name,
               path: file.path,
@@ -570,7 +570,7 @@ export async function getAllFilesFromGitHub() {
     }
 
     const successCount = filesWithContent.filter(f => f.content !== null).length;
-    console.log(`✅ Successfully fetched ${successCount}/${files.length} files`);
+    console.log(`Successfully fetched ${successCount}/${files.length} files`);
 
     return filesWithContent;
   } catch (error) {
@@ -585,7 +585,7 @@ export async function getAllFilesFromGitHub() {
  */
 export async function pullAllFromGitHub() {
   try {
-    console.log('🔄 Starting pullAllFromGitHub...');
+    console.log('Starting pullAllFromGitHub');
     
     // First check if GitHub is configured
     const config = getConfig();
@@ -593,10 +593,10 @@ export async function pullAllFromGitHub() {
       throw new Error('GitHub is not configured');
     }
     
-    console.log('✓ GitHub config found:', { owner: config.owner, repo: config.repo, branch: config.branch });
+    console.log('GitHub config found:', { owner: config.owner, repo: config.repo, branch: config.branch });
     
     const files = await getAllFilesFromGitHub();
-    console.log(`📊 Retrieved ${files.length} files from GitHub`);
+    console.log(`Retrieved ${files.length} files from GitHub`);
     
     if (files.length === 0) {
       return {
@@ -610,9 +610,9 @@ export async function pullAllFromGitHub() {
     const validFiles = files.filter(file => file.content !== null);
     const failedFiles = files.filter(file => file.content === null);
     
-    console.log(`✅ Valid files: ${validFiles.length}`);
+    console.log(`Valid files: ${validFiles.length}`);
     if (failedFiles.length > 0) {
-      console.warn(`⚠️  Failed to fetch ${failedFiles.length} files:`, failedFiles.map(f => f.path));
+      console.warn(`Failed to fetch ${failedFiles.length} files:`, failedFiles.map(f => f.path));
     }
     
     if (validFiles.length === 0) {
@@ -637,7 +637,7 @@ export async function pullAllFromGitHub() {
     };
 
   } catch (error) {
-    console.error('❌ GitHub pull all error:', error);
+    console.error('GitHub pull all error:', error);
     console.error('Error details:', {
       message: error.message,
       status: error.status,
@@ -846,7 +846,7 @@ export async function uploadGroupsJson(jsonContent) {
       ...(sha && { sha })
     });
 
-    console.log('✅ Groups JSON uploaded to GitHub');
+    console.log('Groups JSON uploaded to GitHub');
 
     return {
       success: true,
@@ -887,7 +887,7 @@ export async function downloadGroupsJson() {
     const content = Buffer.from(data.content, 'base64').toString('utf-8');
     const jsonData = JSON.parse(content);
 
-    console.log('✅ Groups JSON downloaded from GitHub');
+    console.log('Groups JSON downloaded from GitHub');
 
     return {
       success: true,
@@ -897,7 +897,7 @@ export async function downloadGroupsJson() {
   } catch (error) {
     if (error.status === 404) {
       // File doesn't exist yet
-      console.log('ℹ️  groups.json not found in GitHub repository');
+      console.log('groups.json not found in GitHub repository');
       return {
         success: false,
         notFound: true,

@@ -1,3 +1,6 @@
+import { parseVideoBlockFromHTML } from '@/services/videoBlockService'
+import { parseSectionFromHTML } from '@/services/sectionService'
+
 export function parseHtmlToSections(htmlContent) {
   try {
     const parser = new DOMParser();
@@ -11,39 +14,8 @@ export function parseHtmlToSections(htmlContent) {
     }
     
     sectionElements.forEach((sectionEl, index) => {
-      const section = {
-        id: Date.now() + index,
-        type: 'section',
-        blocks: [],
-        props: {
-          height: 300,
-          bgType: 'color',
-          background: '#ffffff',
-          bgImg: '',
-          bgVideo: '',
-          _blobUrl: '',
-        }
-      };
-      
-      const sectionStyle = sectionEl.getAttribute('style') || '';
-      
-      if (sectionStyle.includes('background-image')) {
-        const bgImgMatch = sectionStyle.match(/background-image:\s*url\(['"]?([^'")\s]+)['"]?\)/);
-        if (bgImgMatch) {
-          section.props.bgType = 'img';
-          section.props.bgImg = bgImgMatch[1];
-        }
-      } else {
-        const bgColorMatch = sectionStyle.match(/background(?:-color)?:\s*([^;]+)/);
-        if (bgColorMatch) {
-          section.props.background = bgColorMatch[1].trim();
-        }
-      }
-      
-      const heightMatch = sectionStyle.match(/min-height:\s*(\d+)px/);
-      if (heightMatch) {
-        section.props.height = parseInt(heightMatch[1], 10);
-      }
+      // Use service to parse section
+      const section = parseSectionFromHTML(sectionEl, index);
       
       const blockWrappers = sectionEl.querySelectorAll('.block-wrapper');
       
@@ -72,37 +44,118 @@ export function parseHtmlToSections(htmlContent) {
         
         const imageBlock = wrapper.querySelector('.image-block');
         if (imageBlock) {
-          const img = imageBlock.querySelector('img');
-          if (img) {
-            const imgStyle = img.getAttribute('style') || '';
-            const src = img.getAttribute('src') || '';
+          const imageCells = imageBlock.querySelectorAll('.image-cell');
+          if (imageCells.length > 0) {
+            // Handle multiple images in a grid
+            const images = [];
+            imageCells.forEach((cell, imgIndex) => {
+              const img = cell.querySelector('img');
+              if (img) {
+                const imgStyle = img.getAttribute('style') || '';
+                const src = img.getAttribute('src') || '';
+                const captionEl = cell.querySelector('.image-caption');
+                
+                // Extract caption and its properties
+                const caption = captionEl ? captionEl.textContent : '';
+                let captionPosition = 'bottom';
+                let captionBubbleAnimated = false;
+                
+                if (captionEl) {
+                  const captionClasses = captionEl.className || '';
+                  // Check for bubble position
+                  if (captionClasses.includes('bubble')) {
+                    captionPosition = 'bubble';
+                    captionBubbleAnimated = captionClasses.includes('animated');
+                  } else if (captionClasses.includes('bottom')) {
+                    captionPosition = 'bottom';
+                  } else if (captionClasses.includes('top')) {
+                    captionPosition = 'top';
+                  }
+                }
+                
+                const widthMatch = imgStyle.match(/width:\s*(\d+)px/);
+                const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
+                const objectFit = imgStyle.includes('object-fit:contain');
+                
+                const width = widthMatch ? parseInt(widthMatch[1], 10) : 300;
+                const height = heightMatch ? parseInt(heightMatch[1], 10) : 300;
+                const aspectRatio = width / height;
+                
+                images.push({
+                  id: Date.now() + index * 1000 + blockIndex + imgIndex * 0.1,
+                  src: src,
+                  width: width,
+                  height: height,
+                  aspectRatio: aspectRatio,
+                  keepRatio: objectFit,
+                  caption: caption,
+                  captionPosition: captionPosition,
+                  captionBubbleAnimated: captionBubbleAnimated,
+                });
+              }
+            });
             
-            const widthMatch = imgStyle.match(/width:\s*(\d+)px/);
-            const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
-            const objectFit = imgStyle.includes('object-fit:contain');
-            
-            const width = widthMatch ? parseInt(widthMatch[1], 10) : 300;
-            const height = heightMatch ? parseInt(heightMatch[1], 10) : 300;
-            const aspectRatio = width / height;
-            
-            const block = {
-              id: Date.now() + index * 1000 + blockIndex,
-              type: 'image',
-              images: [{
-                id: Date.now() + index * 1000 + blockIndex + 0.1,
-                src: src,
-                width: width,
-                height: height,
-                aspectRatio: aspectRatio,
-                keepRatio: objectFit,
-                caption: '',
-                captionPosition: 'bottom',
-                captionBubbleAnimated: false,
-              }],
-              layout: 'inline'
-            };
-            
-            section.blocks.push(block);
+            if (images.length > 0) {
+              const block = {
+                id: Date.now() + index * 1000 + blockIndex,
+                type: 'image',
+                images: images,
+                layout: 'inline'
+              };
+              section.blocks.push(block);
+            }
+          } else {
+            // Handle single image (backward compatibility)
+            const img = imageBlock.querySelector('img');
+            if (img) {
+              const imgStyle = img.getAttribute('style') || '';
+              const src = img.getAttribute('src') || '';
+              const captionEl = imageBlock.querySelector('.image-caption');
+              
+              // Extract caption and its properties
+              const caption = captionEl ? captionEl.textContent : '';
+              let captionPosition = 'bottom';
+              let captionBubbleAnimated = false;
+              
+              if (captionEl) {
+                const captionClasses = captionEl.className || '';
+                if (captionClasses.includes('bubble')) {
+                  captionPosition = 'bubble';
+                  captionBubbleAnimated = captionClasses.includes('animated');
+                } else if (captionClasses.includes('bottom')) {
+                  captionPosition = 'bottom';
+                } else if (captionClasses.includes('top')) {
+                  captionPosition = 'top';
+                }
+              }
+              
+              const widthMatch = imgStyle.match(/width:\s*(\d+)px/);
+              const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
+              const objectFit = imgStyle.includes('object-fit:contain');
+              
+              const width = widthMatch ? parseInt(widthMatch[1], 10) : 300;
+              const height = heightMatch ? parseInt(heightMatch[1], 10) : 300;
+              const aspectRatio = width / height;
+              
+              const block = {
+                id: Date.now() + index * 1000 + blockIndex,
+                type: 'image',
+                images: [{
+                  id: Date.now() + index * 1000 + blockIndex + 0.1,
+                  src: src,
+                  width: width,
+                  height: height,
+                  aspectRatio: aspectRatio,
+                  keepRatio: objectFit,
+                  caption: caption,
+                  captionPosition: captionPosition,
+                  captionBubbleAnimated: captionBubbleAnimated,
+                }],
+                layout: 'inline'
+              };
+              
+              section.blocks.push(block);
+            }
           }
         }
         
@@ -112,10 +165,39 @@ export function parseHtmlToSections(htmlContent) {
           if (img) {
             const imgStyle = img.getAttribute('style') || '';
             const src = img.getAttribute('src') || '';
-            const caption = fullwidthImageBlock.querySelector('.image-caption');
+            const captionEl = fullwidthImageBlock.querySelector('.image-caption');
+            
+            // Extract caption and its properties
+            const caption = captionEl ? captionEl.textContent : '';
+            let captionPosition = 'bottom';
+            let captionBubbleAnimated = false;
+            
+            if (captionEl) {
+              const captionClasses = captionEl.className || '';
+              if (captionClasses.includes('bubble')) {
+                captionPosition = 'bubble';
+                captionBubbleAnimated = captionClasses.includes('animated');
+              } else if (captionClasses.includes('bottom')) {
+                captionPosition = 'bottom';
+              } else if (captionClasses.includes('top')) {
+                captionPosition = 'top';
+              }
+            }
             
             const isCover = imgStyle.includes('object-fit:cover');
             const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
+            
+            // Try to calculate aspectRatio from width/height in style, or use default 16:9
+            let aspectRatio = 16 / 9; // default
+            const widthMatch = imgStyle.match(/width:\s*(\d+)(?:px|%)/);
+            if (widthMatch && heightMatch) {
+              // If both width and height are specified, calculate ratio
+              const width = parseInt(widthMatch[1], 10);
+              const height = parseInt(heightMatch[1], 10);
+              if (width > 0 && height > 0) {
+                aspectRatio = width / height;
+              }
+            }
             
             const block = {
               id: Date.now() + index * 1000 + blockIndex,
@@ -125,9 +207,10 @@ export function parseHtmlToSections(htmlContent) {
                 src: src,
                 mode: isCover ? 'fixed' : 'auto',
                 height: heightMatch ? parseInt(heightMatch[1], 10) : 400,
-                caption: caption ? caption.textContent : '',
-                captionPosition: 'bottom',
-                captionBubbleAnimated: false,
+                aspectRatio: aspectRatio,
+                caption: caption,
+                captionPosition: captionPosition,
+                captionBubbleAnimated: captionBubbleAnimated,
               }
             };
             
@@ -144,8 +227,27 @@ export function parseHtmlToSections(htmlContent) {
             const img = floatImageBlock.querySelector('img');
             if (img) {
               const src = img.getAttribute('src') || '';
-              const caption = floatImageBlock.querySelector('.image-caption');
+              const captionEl = floatImageBlock.querySelector('.image-caption');
               const blockStyle = floatImageBlock.getAttribute('style') || '';
+              
+              // Extract caption and its properties
+              const caption = captionEl ? captionEl.textContent : '';
+              let captionPosition = 'bottom';
+              let captionBubbleAnimated = false;
+              
+              if (captionEl) {
+                const captionClasses = captionEl.className || '';
+                if (captionClasses.includes('bubble')) {
+                  captionPosition = 'bubble';
+                  captionBubbleAnimated = captionClasses.includes('animated');
+                } else if (captionClasses.includes('bottom')) {
+                  captionPosition = 'bottom';
+                } else if (captionClasses.includes('top')) {
+                  captionPosition = 'top';
+                } else if (captionClasses.includes('right')) {
+                  captionPosition = 'right';
+                }
+              }
               
               const widthMatch = blockStyle.match(/width:\s*(\d+)%/);
               const widthPercent = widthMatch ? parseInt(widthMatch[1], 10) : 45;
@@ -164,9 +266,9 @@ export function parseHtmlToSections(htmlContent) {
                   widthPercent: widthPercent,
                   keepRatio: true,
                   aspectRatio: 1,
-                  caption: caption ? caption.textContent : '',
-                  captionPosition: 'bottom',
-                  captionBubbleAnimated: false,
+                  caption: caption,
+                  captionPosition: captionPosition,
+                  captionBubbleAnimated: captionBubbleAnimated,
                 },
                 text: text
               };
@@ -204,65 +306,125 @@ export function parseHtmlToSections(htmlContent) {
       imageBlocks.forEach((figureEl, blockIndex) => {
         if (figureEl.closest('.block-wrapper')) return;
         
-        const img = figureEl.querySelector('img');
-        if (img) {
-          const imgStyle = img.getAttribute('style') || '';
-          const src = img.getAttribute('src') || '';
+        const imageCells = figureEl.querySelectorAll('.image-cell');
+        if (imageCells.length > 0) {
+          // Handle multiple images in a grid
+          const images = [];
+          imageCells.forEach((cell, imgIndex) => {
+            const img = cell.querySelector('img');
+            if (img) {
+              const imgStyle = img.getAttribute('style') || '';
+              const src = img.getAttribute('src') || '';
+              const captionEl = cell.querySelector('.image-caption');
+              
+              // Extract caption and its properties
+              const caption = captionEl ? captionEl.textContent : '';
+              let captionPosition = 'bottom';
+              let captionBubbleAnimated = false;
+              
+              if (captionEl) {
+                const captionClasses = captionEl.className || '';
+                if (captionClasses.includes('bubble')) {
+                  captionPosition = 'bubble';
+                  captionBubbleAnimated = captionClasses.includes('animated');
+                } else if (captionClasses.includes('bottom')) {
+                  captionPosition = 'bottom';
+                } else if (captionClasses.includes('top')) {
+                  captionPosition = 'top';
+                }
+              }
+              
+              const widthMatch = imgStyle.match(/width:\s*(\d+)px/);
+              const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
+              const objectFit = imgStyle.includes('object-fit:contain') || imgStyle.includes('object-fit: contain');
+              
+              const width = widthMatch ? parseInt(widthMatch[1], 10) : 300;
+              const height = heightMatch ? parseInt(heightMatch[1], 10) : 300;
+              const aspectRatio = width / height;
+              
+              images.push({
+                id: Date.now() + index * 2000 + blockIndex + 500 + imgIndex * 0.1,
+                src: src,
+                width: width,
+                height: height,
+                aspectRatio: aspectRatio,
+                keepRatio: objectFit,
+                caption: caption,
+                captionPosition: captionPosition,
+                captionBubbleAnimated: captionBubbleAnimated,
+              });
+            }
+          });
           
-          const widthMatch = imgStyle.match(/width:\s*(\d+)px/);
-          const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
-          const objectFit = imgStyle.includes('object-fit:contain') || imgStyle.includes('object-fit: contain');
-          
-          const width = widthMatch ? parseInt(widthMatch[1], 10) : 300;
-          const height = heightMatch ? parseInt(heightMatch[1], 10) : 300;
-          const aspectRatio = width / height;
-          
-          const block = {
-            id: Date.now() + index * 2000 + blockIndex + 500,
-            type: 'image',
-            images: [{
-              id: Date.now() + index * 2000 + blockIndex + 500.1,
-              src: src,
-              width: width,
-              height: height,
-              aspectRatio: aspectRatio,
-              keepRatio: objectFit,
-              caption: '',
-              captionPosition: 'bottom',
-              captionBubbleAnimated: false,
-            }],
-            layout: 'inline'
-          };
-          
-          section.blocks.push(block);
+          if (images.length > 0) {
+            const block = {
+              id: Date.now() + index * 2000 + blockIndex + 500,
+              type: 'image',
+              images: images,
+              layout: 'inline'
+            };
+            section.blocks.push(block);
+          }
+        } else {
+          // Handle single image (backward compatibility)
+          const img = figureEl.querySelector('img');
+          if (img) {
+            const imgStyle = img.getAttribute('style') || '';
+            const src = img.getAttribute('src') || '';
+            const captionEl = figureEl.querySelector('.image-caption');
+            
+            // Extract caption and its properties
+            const caption = captionEl ? captionEl.textContent : '';
+            let captionPosition = 'bottom';
+            let captionBubbleAnimated = false;
+            
+            if (captionEl) {
+              const captionClasses = captionEl.className || '';
+              if (captionClasses.includes('bubble')) {
+                captionPosition = 'bubble';
+                captionBubbleAnimated = captionClasses.includes('animated');
+              } else if (captionClasses.includes('bottom')) {
+                captionPosition = 'bottom';
+              } else if (captionClasses.includes('top')) {
+                captionPosition = 'top';
+              }
+            }
+            
+            const widthMatch = imgStyle.match(/width:\s*(\d+)px/);
+            const heightMatch = imgStyle.match(/height:\s*(\d+)px/);
+            const objectFit = imgStyle.includes('object-fit:contain') || imgStyle.includes('object-fit: contain');
+            
+            const width = widthMatch ? parseInt(widthMatch[1], 10) : 300;
+            const height = heightMatch ? parseInt(heightMatch[1], 10) : 300;
+            const aspectRatio = width / height;
+            
+            const block = {
+              id: Date.now() + index * 2000 + blockIndex + 500,
+              type: 'image',
+              images: [{
+                id: Date.now() + index * 2000 + blockIndex + 500.1,
+                src: src,
+                width: width,
+                height: height,
+                aspectRatio: aspectRatio,
+                keepRatio: objectFit,
+                caption: caption,
+                captionPosition: captionPosition,
+                captionBubbleAnimated: captionBubbleAnimated,
+              }],
+              layout: 'inline'
+            };
+            
+            section.blocks.push(block);
+          }
         }
       });
       
       const videoBlocks = sectionEl.querySelectorAll('.video-block');
       videoBlocks.forEach((videoEl, blockIndex) => {
-        const iframe = videoEl.querySelector('iframe');
-        if (iframe) {
-          const src = iframe.getAttribute('src') || '';
-          const width = iframe.getAttribute('width') || '560';
-          const height = iframe.getAttribute('height') || '315';
-          
-          const videoIdMatch = src.match(/(?:youtube\.com\/embed\/|youtube-nocookie\.com\/embed\/)([^?&]+)/);
-          const videoId = videoIdMatch ? videoIdMatch[1] : '';
-          
-          if (videoId) {
-            const block = {
-              id: Date.now() + index * 3000 + blockIndex,
-              type: 'video',
-              url: `https://www.youtube.com/watch?v=${videoId}`,
-              videoId: videoId,
-              width: parseInt(width, 10),
-              height: parseInt(height, 10),
-              aspectRatio: parseInt(width, 10) / parseInt(height, 10),
-              keepRatio: true,
-            };
-            
-            section.blocks.push(block);
-          }
+        const block = parseVideoBlockFromHTML(videoEl, index * 3000 + blockIndex);
+        if (block) {
+          section.blocks.push(block);
         }
       });
       

@@ -22,9 +22,7 @@
           @input="handleSearch"
         />
       </div>
-      <button @click="handlePullAllFromGitHub" class="btn btn-pull" :disabled="!githubConnected">
-        ⬇️ Pull All from GitHub
-      </button>
+      <PullAllButton :githubConnected="githubConnected" @success="loadPages" />
       <button @click="showGroupDialog = true" class="btn btn-primary">
         ➕ New Group
       </button>
@@ -144,12 +142,12 @@
           </div>
           <div class="page-info">
             <h4>
-              <span v-if="page.sync_status === 'synced'" class="sync-badge synced" title="Synced: Local + Cloud">☁️</span>
-              <span v-else class="sync-badge local-only" title="Local Only">💾</span>
+              <SyncStatusBadge :sync-status="page.sync_status || 'local-only'" />
               {{ page.title }}
-              <span v-if="page.sections_data" class="editable-badge" title="Fully Editable">✨</span>
-              <span v-else-if="page.html_content && isEditableHtml(page.html_content)" class="convertible-badge" title="Convertible to Editable">🔄</span>
-              <span v-else class="metadata-only-badge" title="Metadata Only">📝</span>
+              <EditableStatusBadge 
+                :sections-data="page.sections_data"
+                :html-content="page.html_content"
+              />
             </h4>
             <div class="page-meta">
               <span v-if="page.group_name" class="group-badge" :style="{ backgroundColor: page.group_color }">
@@ -161,6 +159,15 @@
               <button @click="openPage(page)" class="icon-btn" title="Open">🔗</button>
               <button @click="copyIframeCode(page, $event)" class="icon-btn" title="Copy Iframe Code">📋</button>
               <button @click="editPage(page)" class="icon-btn" title="Edit Content">✏️</button>
+              <button 
+                v-if="!page.github_url || githubConnected" 
+                @click="uploadPageToGitHub(page)" 
+                class="icon-btn" 
+                title="Upload to GitHub"
+                :disabled="!githubConnected"
+              >
+                📤
+              </button>
               <button @click="deletePage(page.id)" class="icon-btn delete" title="Delete">🗑️</button>
             </div>
           </div>
@@ -182,12 +189,12 @@
             <span class="drag-handle">⋮⋮</span>
             <div class="page-main">
               <h4>
-                <span v-if="page.sync_status === 'synced'" class="sync-badge synced" title="Synced: Local + Cloud">☁️</span>
-                <span v-else class="sync-badge local-only" title="Local Only">💾</span>
+                <SyncStatusBadge :sync-status="page.sync_status || 'local-only'" />
                 {{ page.title }}
-                <span v-if="page.sections_data" class="editable-badge" title="Fully Editable">✨</span>
-                <span v-else-if="page.html_content && isEditableHtml(page.html_content)" class="convertible-badge" title="Convertible to Editable">🔄</span>
-                <span v-else class="metadata-only-badge" title="Metadata Only">📝</span>
+                <EditableStatusBadge 
+                  :sections-data="page.sections_data"
+                  :html-content="page.html_content"
+                />
               </h4>
               <span class="filename">{{ page.filename }}</span>
             </div>
@@ -199,6 +206,15 @@
               <button @click="openPage(page)" class="icon-btn" title="Open">🔗</button>
               <button @click="copyIframeCode(page, $event)" class="icon-btn" title="Copy Iframe Code">📋</button>
               <button @click="editPage(page)" class="icon-btn" title="Edit Content">✏️</button>
+              <button 
+                v-if="!page.github_url || githubConnected" 
+                @click="uploadPageToGitHub(page)" 
+                class="icon-btn" 
+                title="Upload to GitHub"
+                :disabled="!githubConnected"
+              >
+                📤
+              </button>
               <button @click="deletePage(page.id)" class="icon-btn delete" title="Delete">🗑️</button>
             </div>
           </div>
@@ -339,13 +355,32 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useEditorStore } from '../stores/editorStore';
 import { parseHtmlToSections, isEditableHtml } from '../utils/parseHtml';
 import * as dialog from '@/utils/dialog';
 import { showCopyText } from '@/utils/inputModal';
+import PullAllButton from './storage/PullAllButton.vue';
+import SyncStatusBadge from './storage/SyncStatusBadge.vue';
+import EditableStatusBadge from './storage/EditableStatusBadge.vue';
+import {
+  getGitHubStatus,
+  getGitHubSettings,
+  getGroups,
+  getPages,
+  createGroup,
+  updateGroup,
+  deleteGroup as deleteGroupAPI,
+  syncGroupsPush,
+  syncGroupsPull,
+  syncGroupsSmart,
+  getPage,
+  updatePage,
+  uploadPageToGitHub as uploadPageToGitHubAPI,
+  deletePage as deletePageAPI,
+  reorderPages
+} from '@/services/apiService';
 
-const API_BASE_URL = 'http://localhost:3001/api';
 const editorStore = useEditorStore();
 
 // State
@@ -408,11 +443,12 @@ function buildGitHubUrl(relativePath) {
 
 async function checkGitHubStatus() {
   try {
-    const response = await fetch(`${API_BASE_URL}/github/status`);
-    const data = await response.json();
-    githubConnected.value = data.configured;
-    githubOwner.value = data.owner || '';
-    githubRepo.value = data.repo || '';
+    const result = await getGitHubStatus();
+    if (result.ok) {
+      githubConnected.value = result.data.configured;
+      githubOwner.value = result.data.owner || '';
+      githubRepo.value = result.data.repo || '';
+    }
   } catch (error) {
     console.error('Failed to check GitHub status:', error);
   }
@@ -420,10 +456,11 @@ async function checkGitHubStatus() {
 
 async function loadGroups() {
   try {
-    const response = await fetch(`${API_BASE_URL}/groups`);
-    const newGroups = await response.json();
-    // Force reactive update by creating a new array instead of direct assignment
-    groups.value = [...newGroups];
+    const result = await getGroups();
+    if (result.ok) {
+      // Force reactive update by creating a new array instead of direct assignment
+      groups.value = [...result.data];
+    }
   } catch (error) {
     console.error('Failed to load groups:', error);
   }
@@ -432,9 +469,10 @@ async function loadGroups() {
 async function loadAllPagesCount() {
   try {
     // Load total count of all pages without filters
-    const response = await fetch(`${API_BASE_URL}/pages`);
-    const allPages = await response.json();
-    allPagesCount.value = allPages.length;
+    const result = await getPages();
+    if (result.ok) {
+      allPagesCount.value = result.data.length;
+    }
   } catch (error) {
     console.error('Failed to load all pages count:', error);
   }
@@ -442,22 +480,18 @@ async function loadAllPagesCount() {
 
 async function loadPages() {
   try {
-    let url = `${API_BASE_URL}/pages`;
-    const params = new URLSearchParams();
-    
+    const filters = {};
     if (filterGroupId.value) {
-      params.append('group_id', filterGroupId.value);
+      filters.group_id = filterGroupId.value;
     }
     if (searchQuery.value) {
-      params.append('search', searchQuery.value);
+      filters.search = searchQuery.value;
     }
     
-    if (params.toString()) {
-      url += `?${params.toString()}`;
+    const result = await getPages(filters);
+    if (result.ok) {
+      pages.value = result.data;
     }
-    
-    const response = await fetch(url);
-    pages.value = await response.json();
     
     // Always update the total count to reflect current state
     await loadAllPagesCount();
@@ -482,21 +516,17 @@ function editGroup(group) {
 
 async function saveGroup() {
   try {
-    const url = editingGroup.value 
-      ? `${API_BASE_URL}/groups/${editingGroup.value.id}`
-      : `${API_BASE_URL}/groups`;
+    const result = editingGroup.value
+      ? await updateGroup(editingGroup.value.id, groupForm.value)
+      : await createGroup(groupForm.value);
     
-    const method = editingGroup.value ? 'PUT' : 'POST';
-    
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(groupForm.value)
-    });
-    
-    if (response.ok) {
+    if (result.ok) {
       await loadGroups();
       closeGroupDialog();
+    } else {
+      await dialog.error(result.error || 'An unexpected error occurred. Please try again.', {
+        title: 'Failed to Save Group'
+      });
     }
   } catch (error) {
     console.error('Failed to save group:', error);
@@ -520,16 +550,18 @@ async function deleteGroup(id) {
   }
   
   try {
-    const response = await fetch(`${API_BASE_URL}/groups/${id}`, {
-      method: 'DELETE'
-    });
+    const result = await deleteGroupAPI(id);
     
-    if (response.ok) {
+    if (result.ok) {
       await loadGroups();
       await loadPages();
       await dialog.success('The group has been removed.\n\nPages are still available.', {
         title: 'Group Deleted',
         icon: '🗑️'
+      });
+    } else {
+      await dialog.error(result.error || 'An unexpected error occurred. Please try again.', {
+        title: 'Failed to Delete Group'
       });
     }
   } catch (error) {
@@ -552,20 +584,17 @@ async function pushGroupsToGitHub() {
 
   isSyncingGroups.value = true;
   try {
-    const response = await fetch(`${API_BASE_URL}/groups/sync/push`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const result = await syncGroupsPush();
     
-    const result = await response.json();
-    
-    if (response.ok) {
+    if (result.ok) {
       await dialog.success('Your groups have been successfully uploaded to GitHub.', {
         title: 'Groups Synced to GitHub!',
         icon: '✅'
       });
     } else {
-      throw new Error(result.error || 'Failed to sync groups');
+      await dialog.error(result.error || 'Failed to sync groups', {
+        title: 'Failed to Sync Groups'
+      });
     }
   } catch (error) {
     console.error('Failed to push groups to GitHub:', error);
@@ -601,18 +630,13 @@ async function pullGroupsFromGitHub() {
 
   isSyncingGroups.value = true;
   try {
-    const response = await fetch(`${API_BASE_URL}/groups/sync/pull`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const result = await syncGroupsPull();
     
-    const result = await response.json();
-    
-    if (response.ok) {
+    if (result.ok) {
       await loadGroups();
       
-      if (result.stats) {
-        const msg = `Created: ${result.stats.created}\nUpdated: ${result.stats.updated}\nSkipped: ${result.stats.skipped}`;
+      if (result.data.stats) {
+        const msg = `Created: ${result.data.stats.created}\nUpdated: ${result.data.stats.updated}\nSkipped: ${result.data.stats.skipped}`;
         await dialog.success(msg, {
           title: 'Groups Synced from GitHub!',
           icon: '📥'
@@ -624,7 +648,9 @@ async function pullGroupsFromGitHub() {
         });
       }
     } else {
-      throw new Error(result.error || 'Failed to pull groups');
+      await dialog.error(result.error || 'Failed to pull groups', {
+        title: 'Failed to Pull Groups'
+      });
     }
   } catch (error) {
     console.error('Failed to pull groups from GitHub:', error);
@@ -648,29 +674,27 @@ async function handleSmartSync() {
 
   isSyncingGroups.value = true;
   try {
-    const response = await fetch(`${API_BASE_URL}/groups/sync/smart`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const result = await syncGroupsSmart();
     
-    const result = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(result.error || 'Smart sync failed');
+    if (!result.ok) {
+      await dialog.error(result.error || 'Smart sync failed', {
+        title: 'Sync Failed'
+      });
+      return;
     }
 
     // Reload groups to show any merged changes
     await loadGroups();
 
-    if (result.action === 'no_change') {
+    if (result.data.action === 'no_change') {
       // No changes - silent success or minimal notification
       await dialog.success('Your groups are already up to date with GitHub.', {
         title: 'Already in Sync',
         icon: '✅'
       });
-    } else if (result.action === 'synced') {
+    } else if (result.data.action === 'synced') {
       // Changes were synced
-      const stats = result.stats;
+      const stats = result.data.stats;
       let msg = '';
       
       if (stats.import) {
@@ -815,13 +839,9 @@ async function editHtmlContent() {
 
 async function savePage() {
   try {
-    const response = await fetch(`${API_BASE_URL}/pages/${editingPage.value.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(pageForm.value)
-    });
+    const result = await updatePage(editingPage.value.id, pageForm.value);
     
-    if (response.ok) {
+    if (result.ok) {
       await loadPages();
       await loadGroups(); // Reload group list to update page count
       closePageDialog();
@@ -829,11 +849,78 @@ async function savePage() {
         title: 'Page Updated Successfully!',
         icon: '✅'
       });
+    } else {
+      await dialog.error(result.error || 'An unexpected error occurred. Please try again.', {
+        title: 'Failed to Update Page'
+      });
     }
   } catch (error) {
     console.error('Failed to save page:', error);
     await dialog.error(error.message || 'An unexpected error occurred. Please try again.', {
       title: 'Failed to Update Page'
+    });
+  }
+}
+
+async function uploadPageToGitHub(page) {
+  if (!githubConnected.value) {
+    await dialog.warning('Please configure your GitHub Pages settings first to enable uploading.', {
+      title: 'GitHub Not Configured',
+      icon: '⚠️'
+    });
+    return;
+  }
+
+  const confirmed = await dialog.confirm(
+    `Upload "${page.title}" to GitHub?\n\nThis will upload the page and all its images to GitHub Pages.`,
+    {
+      title: 'Upload to GitHub',
+      icon: '📤',
+      confirmText: 'Upload',
+      cancelText: 'Cancel'
+    }
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const result = await uploadPageToGitHubAPI(page.id);
+    
+    if (result.ok) {
+      await loadPages();
+      
+      const data = result.data;
+      const configResult = await getGitHubSettings();
+      let fullUrl = data.github_url;
+      if (configResult.ok && configResult.data.configured && configResult.data.config) {
+        const { owner, repo } = configResult.data.config;
+        if (owner && repo && !fullUrl.startsWith('http')) {
+          fullUrl = `https://${owner}.github.io/${repo}/${data.github_url}`;
+        }
+      }
+      
+      let message = `"${page.title}" has been successfully uploaded to GitHub!`;
+      if (data.images_uploaded > 0) {
+        message += `\n\n📤 Uploaded ${data.images_uploaded} image(s)`;
+      }
+      if (fullUrl && fullUrl.startsWith('http')) {
+        message += `\n\n🔗 ${fullUrl}`;
+      }
+      
+      await dialog.success(message, {
+        title: 'Upload Successful!',
+        icon: '✅'
+      });
+    } else {
+      await dialog.error(result.error || 'An unexpected error occurred. Please try again.', {
+        title: 'Failed to Upload Page'
+      });
+    }
+  } catch (error) {
+    console.error('Failed to upload page:', error);
+    await dialog.error(error.message || 'An unexpected error occurred. Please try again.', {
+      title: 'Failed to Upload Page'
     });
   }
 }
@@ -852,11 +939,9 @@ async function deletePage(id) {
   }
   
   try {
-    const response = await fetch(`${API_BASE_URL}/pages/${id}`, {
-      method: 'DELETE'
-    });
+    const result = await deletePageAPI(id);
     
-    if (response.ok) {
+    if (result.ok) {
       await loadPages();
       await loadGroups(); // Reload group list to update page count
       await dialog.success('The page has been removed from your database and GitHub Pages.', {
@@ -864,16 +949,7 @@ async function deletePage(id) {
         icon: '🗑️'
       });
     } else {
-      // Handle error response
-      const errorData = await response.json();
-      console.error('Failed to delete page:', errorData);
-      
-      let errorMessage = errorData.details || errorData.error || 'An unexpected error occurred.';
-      if (errorData.suggestion) {
-        errorMessage += '\n\n' + errorData.suggestion;
-      }
-      
-      await dialog.error(errorMessage, {
+      await dialog.error(result.error || 'An unexpected error occurred. Please try again.', {
         title: 'Failed to Delete Page'
       });
     }
@@ -911,7 +987,7 @@ async function copyIframeCode(page, event) {
   const iframeCode = `<iframe 
   src="${fullUrl}" 
   width="100%" 
-  height="600" 
+  height="100%" 
   frameborder="0" 
   sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
   title="${page.title}">
@@ -964,11 +1040,8 @@ async function handleDrop(event, targetPage) {
   }));
   
   try {
-    await fetch(`${API_BASE_URL}/pages/reorder`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pages: updates })
-    });
+    const pageIds = updates.map(u => u.id);
+    await reorderPages(pageIds);
     
     pages.value = newPages;
   } catch (error) {
@@ -979,8 +1052,29 @@ async function handleDrop(event, targetPage) {
 }
 
 function formatDate(dateString) {
+  if (!dateString) return '';
   const date = new Date(dateString);
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) return dateString;
+  
+  // Get user's locale and timezone
+  const userLocale = navigator.language || 'en-US';
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  // Use Intl.DateTimeFormat to properly handle timezone
+  const formatter = new Intl.DateTimeFormat(userLocale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: userTimezone // Use user's local timezone
+  });
+  
+  return formatter.format(date);
 }
 
 function closeGroupDialog() {
@@ -1107,21 +1201,17 @@ const generateThumbnailsForPages = async (pageIds) => {
       
       if (previewImage) {
         // Update page with preview image
-        const response = await fetch(`${API_BASE_URL}/pages/${pageId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: page.title,
-            filename: page.filename,
-            html_content: page.html_content,
-            sections_data: page.sections_data,
-            group_id: page.group_id,
-            sort_order: page.sort_order,
-            preview_image: previewImage
-          })
+        const result = await updatePage(pageId, {
+          title: page.title,
+          filename: page.filename,
+          html_content: page.html_content,
+          sections_data: page.sections_data,
+          group_id: page.group_id,
+          sort_order: page.sort_order,
+          preview_image: previewImage
         });
 
-        if (response.ok) {
+        if (result.ok) {
           successCount++;
         } else {
           errorCount++;
@@ -1218,158 +1308,31 @@ const generateAllThumbnails = async () => {
   }
 };
 
-// GitHub Pull All function
-const handlePullAllFromGitHub = async () => {
-  // Check if GitHub is configured
-  if (!githubConnected.value) {
-    await dialog.warning('Please configure your GitHub Pages settings first.', {
-      title: 'GitHub Pages Not Configured',
-      icon: '⚠️'
-    })
-    return
-  }
-
-  const confirmed = await dialog.confirm(
-    'Pull all pages from GitHub?\n\nThis will download all HTML files from your GitHub repository and save them to the local database.\n\nExisting pages will be updated with the latest content from GitHub.',
-    {
-      title: 'Pull All Pages',
-      icon: '📥',
-      confirmText: 'Pull All',
-      cancelText: 'Cancel'
-    }
-  );
-  if (!confirmed) {
-    return
-  }
-
-  try {
-    // Pull all files from GitHub
-    const pullResponse = await fetch(`${API_BASE_URL}/github/pull-all`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    })
-    
-    if (!pullResponse.ok) {
-      const error = await pullResponse.json()
-      throw new Error(error.error || error.details || 'Unknown error')
-    }
-    
-    const pullData = await pullResponse.json()
-    
-    if (!pullData.success) {
-      await dialog.error(pullData.message || 'Unable to download pages from GitHub.', {
-        title: 'Pull Failed'
-      })
-      return
-    }
-    
-    if (pullData.files.length === 0) {
-      await dialog.info('No HTML files were found in your GitHub repository.', {
-        title: 'No Pages Found',
-        icon: 'ℹ️'
-      })
-      return
-    }
-    
-    // Refresh the pages list to show the new content
-    await loadPages()
-    
-    // Auto-generate thumbnails for pages without preview images
-    const pagesNeedingThumbnails = pages.value
-      .filter(p => !p.preview_image && p.html_content)
-      .map(p => p.id)
-    
-    let thumbnailMessage = ''
-    if (pagesNeedingThumbnails.length > 0) {
-      try {
-        const { successCount, errorCount } = await generateThumbnailsForPages(pagesNeedingThumbnails)
-        await loadPages() // Refresh to show new thumbnails
-        thumbnailMessage = `\n\n🖼️ Thumbnails: Generated ${successCount} thumbnails`
-        if (errorCount > 0) {
-          thumbnailMessage += ` (${errorCount} failed)`
-        }
-      } catch (error) {
-        console.error('Failed to auto-generate thumbnails:', error)
-        thumbnailMessage = `\n\n⚠️ Failed to auto-generate thumbnails`
-      }
-    }
-    
-    // Build detailed success message
-    let message = `✅ Successfully pulled ${pullData.files.length} files from GitHub!\n\n`
-    
-    if (pullData.stats) {
-      message += `📊 Statistics:\n`
-      message += `   Total files: ${pullData.stats.total}\n`
-      message += `   Saved: ${pullData.stats.saved}\n`
-      if (pullData.stats.fetchFailed > 0) {
-        message += `   Failed to fetch: ${pullData.stats.fetchFailed}\n`
-      }
-      if (pullData.stats.failed > 0) {
-        message += `   Failed to save: ${pullData.stats.failed}\n`
-      }
-      if (pullData.stats.cleaned > 0) {
-        message += `   🧹 Cleaned up: ${pullData.stats.cleaned} empty pages\n`
-      }
-      message += `\n`
-    }
-    
-    // Show file list (limit to first 10 files)
-    if (pullData.fileTitles && pullData.fileTitles.length > 0) {
-      const displayFiles = pullData.fileTitles.slice(0, 10)
-      message += `📄 Files: ${displayFiles.join(', ')}`
-      if (pullData.fileTitles.length > 10) {
-        message += `, ... and ${pullData.fileTitles.length - 10} more`
-      }
-    }
-    
-    // Add thumbnail generation message
-    message += thumbnailMessage
-    
-    // Show cleaned pages if any
-    if (pullData.cleanedPages && pullData.cleanedPages.length > 0) {
-      message += `\n\n🧹 Cleaned up empty pages:`
-      pullData.cleanedPages.forEach(page => {
-        message += `\n   - ${page.filename} (${page.title})`
-      })
-    }
-    
-    // Show errors if any
-    if (pullData.pullErrors && pullData.pullErrors.length > 0) {
-      message += `\n\n⚠️ Some files failed to fetch from GitHub:`
-      pullData.pullErrors.forEach(err => {
-        message += `\n   - ${err.file}: ${err.error}`
-      })
-    }
-    
-    if (pullData.saveErrors && pullData.saveErrors.length > 0) {
-      message += `\n\n⚠️ Some files failed to save to database:`
-      pullData.saveErrors.forEach(err => {
-        message += `\n   - ${err.file}: ${err.error}`
-      })
-    }
-    
-    await dialog.success(message, {
-      title: `Successfully Pulled ${pullData.files.length} Pages!`,
-      icon: '📥'
-    })
-    
-  } catch (error) {
-    console.error('❌ Pull all from GitHub error:', error)
-    await dialog.error(error.message || 'Unable to download pages from GitHub. Please try again.', {
-      title: 'Pull Failed'
-    })
-  }
-}
+// Pull All function moved to PullAllButton component
 
 function closeManager() {
   emit('close');
 }
 
 
+// Listen for page update events from editor
+function handlePageUpdated() {
+  // Refresh pages to update sync status
+  loadPages();
+}
+
 onMounted(() => {
   checkGitHubStatus();
   loadGroups();
   loadPages();
+  
+  // Listen for page update events
+  window.addEventListener('page-updated', handlePageUpdated);
+});
+
+onBeforeUnmount(() => {
+  // Clean up event listener
+  window.removeEventListener('page-updated', handlePageUpdated);
 });
 </script>
 
@@ -2531,79 +2494,5 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-/* Page Edit Status Badges */
-.editable-badge,
-.convertible-badge,
-.metadata-only-badge {
-  font-size: 0.8em;
-  margin-left: 6px;
-  opacity: 0.8;
-  transition: opacity 0.2s;
-}
-
-.editable-badge:hover,
-.convertible-badge:hover,
-.metadata-only-badge:hover {
-  opacity: 1;
-}
-
-.editable-badge {
-  /* Fully editable - has sections_data */
-  filter: drop-shadow(0 0 2px rgba(255, 215, 0, 0.5));
-}
-
-.convertible-badge {
-  /* Can be converted from HTML */
-  filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.5));
-}
-
-.metadata-only-badge {
-  /* Metadata only - cannot load into editor */
-  filter: drop-shadow(0 0 2px rgba(156, 163, 175, 0.5));
-}
-
-/* Sync Status Badges */
-.sync-badge {
-  font-size: 0.9em;
-  margin-right: 6px;
-  display: inline-flex;
-  align-items: center;
-  transition: all 0.2s;
-  cursor: help;
-}
-
-.sync-badge.synced {
-  /* Synced to cloud - both local and cloud */
-  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.6));
-}
-
-.sync-badge.synced:hover {
-  filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.9));
-  transform: scale(1.1);
-}
-
-.sync-badge.local-only {
-  /* Local only - not synced to cloud */
-  filter: drop-shadow(0 0 3px rgba(234, 179, 8, 0.6));
-  opacity: 0.85;
-}
-
-.sync-badge.local-only:hover {
-  filter: drop-shadow(0 0 5px rgba(234, 179, 8, 0.9));
-  transform: scale(1.1);
-  opacity: 1;
-}
-
-.sync-badge.cloud-only {
-  /* Cloud only - not in local database (future use) */
-  filter: drop-shadow(0 0 3px rgba(168, 85, 247, 0.6));
-  opacity: 0.85;
-}
-
-.sync-badge.cloud-only:hover {
-  filter: drop-shadow(0 0 5px rgba(168, 85, 247, 0.9));
-  transform: scale(1.1);
-  opacity: 1;
-}
 </style>
 

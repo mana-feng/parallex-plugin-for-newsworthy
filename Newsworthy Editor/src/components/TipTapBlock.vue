@@ -23,6 +23,7 @@ const emit = defineEmits(['update:modelValue', 'focused'])
 const editor = shallowRef(null)
 
 // TipTap Extensions
+// TSB文本编辑器扩展：drop（首字下沉）样式能力实现定义位置
 const FontSize = Extension.create({
   name: 'fontSize',
   addGlobalAttributes() {
@@ -66,6 +67,7 @@ const FontFamily = Extension.create({
 })
 
 const DropcapStyle = Extension.create({
+  // drop实现：通过 textStyle 的全局属性，控制首字的浮动、显示、字号、行高、边距、字重
   name: 'dropcapStyle',
   addGlobalAttributes() {
     const attr = k => ({

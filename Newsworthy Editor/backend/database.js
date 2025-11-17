@@ -76,6 +76,19 @@ function initDatabase() {
 
   try {
     const columns = db.pragma('table_info(pages)');
+    const hasLastUploadedAt = columns.some(col => col.name === 'last_uploaded_at');
+    
+    if (!hasLastUploadedAt) {
+      console.log('Migrating database: Adding last_uploaded_at column...');
+      db.exec('ALTER TABLE pages ADD COLUMN last_uploaded_at DATETIME');
+      console.log('Migration complete: last_uploaded_at column added');
+    }
+  } catch (error) {
+    console.log('Database migration check for last_uploaded_at:', error.message);
+  }
+
+  try {
+    const columns = db.pragma('table_info(pages)');
     const indexes = db.pragma('index_list(pages)');
     
     const needsMigration = indexes.some(idx => {
@@ -211,6 +224,7 @@ export const pageOperations = {
     SET title = @title, filename = @filename, github_url = @github_url, 
         group_id = @group_id, sort_order = @sort_order, 
         html_content = @html_content, sections_data = @sections_data, preview_image = @preview_image,
+        last_uploaded_at = @last_uploaded_at,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = @id
   `),
