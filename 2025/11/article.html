@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>Exported Article</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: transparent;
+            padding: 0;
+            margin: 0;
+        }
+        /* Text alignment classes (for compatibility) */
+        .text-align-left {
+            text-align: left;
+        }
+        .text-align-center {
+            text-align: center;
+        }
+        
+        /* Text alignment inline styles (TipTap uses inline styles) */
+        [style*="text-align: left"],
+        [style*="text-align:left"] {
+            text-align: left !important;
+        }
+        [style*="text-align: center"],
+        [style*="text-align:center"] {
+            text-align: center !important;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            font-family: Georgia, "Times New Roman", Times, serif;
+            line-height: 1.75;
+            color: #111111;
+            background-color: #ffffff;
+        }
+    
+        .section-block {
+            /* Section should always fill full width */
+            width: 100%;
+            max-width: 100%;
+            flex-shrink: 0;
+            min-height: 200px;
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+            /* Default white background - ensures full-width background coverage */
+            /* Individual sections can override this via inline styles */
+            background-color: #fff;
+            /* Smooth transition for real-time responsiveness */
+            transition: all 0.2s ease;
+        }
+
+        .section-block img,
+        .section-block video {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            transition: all 0.2s ease;
+        }
+    
+        .block-wrapper {
+            /* Add horizontal and vertical padding to content blocks */
+            padding: clamp(12px, 2vw, 24px) clamp(16px, 3vw, 32px);
+            transition: padding 0.2s ease;
+            /* Center content and limit max-width for readability on large screens */
+            margin: 0 auto;
+            max-width: 960px;
+        }
+    
+        .article-container {
+            width: 100%;
+            background-color: transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+    
+        /* All screen sizes: section stretches to full width */
+        .section,
+        .section-block {
+            max-width: 100%;
+            width: 100%;
+        }
+
+        /* Mobile: 0 - 479px */
+        @media (max-width: 479px) {
+            .section {
+                min-height: auto !important;
+            }
+
+            .section-block {
+                min-height: auto;
+            }
+
+            .info-banner {
+                font-size: clamp(11px, 2.5vw, 14px);
+                padding: clamp(6px, 1.5vw, 12px);
+            }
+        }
+    
+        
+        .section {
+            margin: 0;
+            box-sizing: border-box;
+            position: relative;
+            border-top: 2px solid #e5e7eb;
+            /* Remove padding to let background color/image extend to edges */
+            padding: 0;
+            overflow: visible;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            /* Full width, no max-width restriction */
+            width: 100%;
+            max-width: 100%;
+            /* Default white background - ensures full-width background coverage */
+            /* Individual sections can override this via inline styles */
+            background-color: #fff;
+            /* Smooth transition for real-time responsiveness */
+            transition: all 0.2s ease;
+        }
+    
+        
+        .prose {
+            background: transparent;
+            border: 1px solid transparent;
+            min-height: 50px;
+            padding: clamp(4px, 1vw, 8px);
+            transition: padding 0.2s ease;
+        }
+
+        .prose h1 {
+            font-size: clamp(1.5em, 4vw, 2.5em);
+            font-weight: 700;
+            margin: 0.67em 0;
+            line-height: 1.2;
+        }
+
+        .prose h2 {
+            font-size: clamp(1.25em, 3vw, 2em);
+            font-weight: 700;
+            margin: 0.83em 0;
+            line-height: 1.3;
+        }
+
+        .prose h3 {
+            font-size: clamp(1.15em, 2.5vw, 1.3em);
+            font-weight: 700;
+            margin: 1em 0;
+            line-height: 1.4;
+        }
+
+        .prose p {
+            font-size: clamp(0.9em, 2vw, 1.2em);
+            line-height: 1.6;
+            margin: 1em 0;
+        }
+
+        .prose ul, .prose ol {
+            font-size: clamp(0.95em, 1.5vw, 1em);
+            line-height: 1.6;
+        }
+
+        .text-wrapper {
+            transition: max-width 0.25s ease, padding 0.2s ease;
+            padding: clamp(0.25rem, 1vw, 0.5rem) 0;
+            width: 100%;
+            margin: 0 auto;
+            box-sizing: border-box;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            max-width: min(var(--block-max, 65ch), var(--device-text-max, 65ch), 95%);
+        }
+
+        .text-block {
+            /* Width is controlled by inline style, not hardcoded here */
+            width: 100%;
+            margin: 0 auto;
+            /* Padding is provided by block-wrapper */
+            padding: 0;
+        }
+
+        .text-block h1 {
+            /* Fluid font size: scales between 1.5em and 2em based on viewport */
+            font-size: clamp(1.5em, 4vw, 2em);
+            font-weight: 700;
+            margin: 0.67em 0;
+            line-height: 1.2;
+        }
+
+        .text-block h2 {
+            /* Fluid font size: scales between 1.25em and 1.5em */
+            font-size: clamp(1.25em, 3vw, 1.5em);
+            font-weight: 700;
+            margin: 0.83em 0;
+            line-height: 1.3;
+        }
+
+        .text-block p {
+            /* Fluid font size for better readability on all screens */
+            font-size: clamp(0.95em, 1.5vw, 1em);
+            line-height: 1.6;
+            margin: 1em 0;
+        }
+
+        .text-block strong {
+            font-weight: 700;
+        }
+
+        .text-block em {
+            font-style: italic;
+        }
+
+        .text-block a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
+        .text-block a:hover {
+            color: #1d4ed8;
+        }
+
+        .text-block ul, .text-block ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+
+        .text-block li {
+            margin: 0.5em 0;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 767px) {
+            .text-wrapper {
+                max-width: 95%;
+            }
+        }
+
+        @media (max-width: 479px) {
+            .text-wrapper {
+                max-width: 100%;
+            }
+
+            .prose {
+                padding: clamp(2px, 0.5vw, 4px);
+            }
+        }
+
+        @media (min-width: 1920px) {
+            .text-wrapper {
+                max-width: min(var(--block-max, 75ch), var(--device-text-max, 75ch), 95%);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            [style*="font-size"] {
+                font-size: calc(0.95 * 1em) !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            [style*="font-size"] {
+                font-size: calc(0.8 * 1em) !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            [style*="font-size"] {
+                font-size: calc(0.65 * 1em) !important;
+            }
+        }
+    
+        
+        /* Base Image Block */
+        .image-block {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: clamp(8px, 1.5vw, 10px) 0;
+            padding: 0;
+        }
+
+        .block-wrapper.fullwidth-wrapper {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .image-block img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            object-fit: cover;
+            transition: all 0.2s ease;
+        }
+
+        /* Multi-Image Grid */
+        .image-grid {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+
+        .image-cell {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-selected {
+            outline: 2px solid #8ab4ff;
+            outline-offset: 2px;
+        }
+
+        /* Caption Styles */
+        .image-caption {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 4px;
+            line-height: 1.4;
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* bottom caption */
+        .image-caption.bottom {
+            text-align: center;
+            margin-top: 6px;
+            display: block;
+            width: 100%;
+        }
+
+        /* bubble caption */
+        .image-caption.bubble {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.65);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            line-height: 1.3;
+            max-width: 70%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .image-block:hover .image-caption.bubble,
+        .fullwidth-image-block:hover .image-caption.bubble {
+            opacity: 1;
+        }
+
+        .image-caption.bubble.animated {
+            animation: fadeInBubble 0.4s ease-in-out forwards;
+        }
+
+        @keyframes fadeInBubble {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Fullwidth Image Block */
+        .fullwidth-image-block {
+            width: 100%;
+            max-width: 100%;
+            display: block;
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }
+
+        .fullwidth-image-block img {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0;
+            display: block;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .fullwidth-image-block .image-caption {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 4px;
+            line-height: 1.4;
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .image-cell {
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .float-image-block,
+            .float-image-text {
+                width: 100% !important;
+            }
+
+            .float-image-block {
+                margin: 10px auto !important;
+                text-align: center;
+                max-width: 90%;
+            }
+        }
+
+        @media (max-width: 479px) {
+            .float-image-block {
+                max-width: 100%;
+            }
+        }
+    
+        
+        .video-block {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: clamp(8px, 1.5vw, 10px) 0;
+        }
+        .video-block iframe {
+            max-width: 100%;
+            border: none;
+            border-radius: 4px;
+            aspect-ratio: 16 / 9;
+        }
+        .video-fallback {
+            max-width: 100%;
+            transition: all 0.2s ease;
+        }
+        @media (max-width: 479px) {
+            .video-block iframe,
+            .video-fallback {
+                width: 100%;
+                height: auto;
+            }
+        }
+    
+        
+        /* Parallax Section Styles */
+        .parallax-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .parallax-bg-wrapper {
+            position: sticky;
+            top: 0;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .parallax-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out;
+        }
+
+        .parallax-bg.active {
+            opacity: 1;
+        }
+
+        .parallax-content {
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .parallax-slide {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Fluid padding for parallax slides */
+            padding: clamp(1rem, 3vw, 2rem);
+            transition: padding 0.2s ease;
+        }
+
+        .parallax-slide-content {
+            /* Fluid max-width for parallax content */
+            max-width: min(800px, 95%);
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            /* Fluid padding */
+            padding: clamp(1.5rem, 4vw, 3rem);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            pointer-events: auto;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            transition: padding 0.2s ease;
+        }
+        .parallax-slide-content * {
+            max-width: 100%;
+        }
+
+        .parallax-slide-content.transparent {
+            background: transparent;
+            box-shadow: none;
+        }
+
+        /* Responsive Design - Media Queries for Parallax */
+        /* Laptop/Tablet landscape: 768px - 1199px */
+        @media (min-width: 768px) and (max-width: 1199px) {
+            .parallax-slide-content {
+                max-width: min(600px, 90%);
+            }
+        }
+
+        /* Tablet portrait: 480px - 767px */
+        @media (min-width: 480px) and (max-width: 767px) {
+            .parallax-slide-content {
+                max-width: 95%;
+            }
+        }
+
+        /* Mobile: 0 - 479px */
+        @media (max-width: 479px) {
+            .parallax-slide-content {
+                max-width: 95%;
+                border-radius: 4px;
+            }
+        }
+    
+    </style>
+    <script>
+        
+        function loadYouTubeVideo(videoId, width, height) {
+            const container = document.getElementById('video-' + videoId);
+            if (!container) return;
+
+            const fallback = container.querySelector('.video-fallback');
+            const iframe = container.querySelector('.video-iframe');
+
+            if (window.location.protocol === 'file:') {
+                window.open('https://www.youtube.com/watch?v=' + videoId, '_blank');
+            } else {
+                if (fallback) fallback.style.display = 'none';
+                if (iframe) {
+                    iframe.style.display = 'block';
+                    const currentSrc = iframe.src;
+                    if (currentSrc.indexOf('autoplay') === -1) {
+                        iframe.src = currentSrc + '?autoplay=1';
+                    }
+                }
+            }
+        }
+
+        window.addEventListener('load', function() {
+            const isFileProtocol = window.location.protocol === 'file:';
+            if (!isFileProtocol) {
+                const iframes = document.querySelectorAll('.video-iframe');
+                const fallbacks = document.querySelectorAll('.video-fallback');
+            }
+        });
+    
+        
+        // Parallax scrolling effect
+        document.addEventListener('DOMContentLoaded', function() {
+            const parallaxContainers = document.querySelectorAll('.parallax-container');
+
+            parallaxContainers.forEach(container => {
+                const backgrounds = container.querySelectorAll('.parallax-bg');
+                const slides = container.querySelectorAll('.parallax-slide');
+
+                if (backgrounds.length === 0 || slides.length === 0) return;
+
+                function updateParallax() {
+                    const containerTop = container.getBoundingClientRect().top;
+                    const containerHeight = container.offsetHeight;
+                    const windowHeight = window.innerHeight;
+
+                    // Calculate scroll progress within container
+                    const scrollProgress = -containerTop / (containerHeight - windowHeight);
+                    const clampedProgress = Math.max(0, Math.min(1, scrollProgress));
+
+                    // Calculate which slide should be active
+                    const slideIndex = Math.floor(clampedProgress * slides.length);
+                    const activeIndex = Math.min(slideIndex, slides.length - 1);
+
+                    // Update background visibility
+                    backgrounds.forEach((bg, index) => {
+                        if (index === activeIndex) {
+                            bg.classList.add('active');
+                        } else {
+                            bg.classList.remove('active');
+                        }
+                    });
+                }
+
+                // Initial update
+                updateParallax();
+
+                // Update on scroll
+                window.addEventListener('scroll', updateParallax, { passive: true });
+                window.addEventListener('resize', updateParallax, { passive: true });
+            });
+        });
+    
+    </script>
+</head>
+<body>
+    <div class="article-container">
+
+        <section class="section" style="min-height: 1200px; background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/Bg.jpg');">
+            
+        </section>
+    
+        <section class="section" style="min-height: 300px; background-color: #ffffff;">
+            
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>The spoils of war</strong></span></h1><p></p><p style="line-height: 1.5;"><span style="font-size: 28px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Should a priceless mosaic inside the Australian War Memorial be returned to the Middle East?</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 14px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">By </span><a target="_blank" rel="noopener noreferrer nofollow" href="https://www.abc.net.au/listen/radionational/marc-fennell/3010492">Marc Fennell</a><span style="color: rgb(0, 0, 0); font-size: 14px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;"> and </span><a target="_blank" rel="noopener noreferrer nofollow" href="https://www.abc.net.au/news/nick-baker/13384586">Nick Baker</a><span style="color: rgb(0, 0, 0); font-size: 14px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;"> for </span><a target="_blank" rel="noopener noreferrer nofollow" href="https://iview.abc.net.au/show/stuff-the-british-stole">Stuff the British Stole</a></p><p><span style="color: rgb(16, 49, 106); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;"><strong>Tue 15 Nov 2022</strong></span></p>
+                </div>
+            </div>
+        
+        </section>
+            <div class="parallax-container" id="parallax-1764036291584-qzeplr045">
+            <div class="parallax-bg-wrapper">
+            <div class="parallax-bg active" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax1_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax2_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax3_1.jpg');"></div>
+            </div>
+            <div class="parallax-content">
+            <div class="parallax-slide" data-slide-index="0">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">Tucked away inside the Australian War Memorial, beneath thousands of names of the fallen, among weapons and mementos from past conflicts, is a mosaic.</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="1">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">The Shellal Mosaic, made up of broken, faded pieces, depicting animals and winding grapevines, isn’t nearly as eye-catching or as grand as the war&nbsp;museum’s</span><strong>&nbsp;</strong><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">many other displays.</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="2">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">But this mosaic is one of the most controversial artworks in Australia.</span></p>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <section class="section" style="min-height: 300px; background-color: #ffffff;">
+            
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">It’s controversial because it was taken — some say looted — by Australian and New Zealand&nbsp;troops in the middle of a war zone, from land which today is among the most contested in the world.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">To an Israeli archaeologist, this artwork is “stolen property”.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">To a Palestinian mosaic expert, it’s a missing piece of cultural heritage.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">And to an Australian war historian, it’s all a “very strange story”.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h2><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>An ancient church floor</strong></span></h2><p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">The story of the Shellal Mosaic begins&nbsp;almost 1,500 years ago.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">In the mid-sixth century, the Byzantine Empire, which was an evolution of the Roman Empire to the east, ruled across the Mediterranean region.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/image-e407bcec.png" style="width:1000px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bottom " style="">A mosaic from Italy featuring Justinian I (centre), who ruled the Byzantine Empire in the sixth century. (Getty Images: Richard T Nowitz)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Around this time, a Christian church was constructed in Byzantine-controlled Palestine, with an important feature: An opulent floor made up of half a million ‘tesserae’, or tiny, colourful tiles.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">The Shellal Mosaic, as it’s called today, was born.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">But as the centuries went on and the Byzantine Empire faded, the church fell to ruin, with the building and its once-opulent mosaic floor forgotten.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">That is, until one of the bloodiest conflicts in human history.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>A wartime find</strong></span></h1><p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">In World War I, soldiers from Australia&nbsp;and New Zealand were sent to the Middle East to fight the Turkish Ottoman Empire, which had sided with the Germans.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Dr Emily Robertson, a war historian at the Australian National University, explains, “Essentially, Australia, as a dominion of the British Empire, was obliged to go to [this] war”.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">During the Second Battle of Gaza in 1917, Australian and New Zealand soldiers found themselves on a hill near a Palestinian town called Shellal.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“They were digging trenches … [and] this mosaic pops up,” Dr Robertson says.</span></p><p></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/img2.jpg" style="width:1000px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bottom " style="">A section of the Shellal Mosaic after being found in 1917. (Supplied: The State Library of Queensland)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">It would have been a stunning find. According to a description of the mosaic from the Australian War Memorial, it was seen as “amongst the best mosaics of the sixth century”.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Among the surprised Australians discovering the mosaic was military chaplain Reverend William Maitland Woods.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">He would play a crucial role in the mosaic’s fate.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>A chaplain and amateur archaeologist</strong></span></h1><p style="text-align: left; line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Dr Robertson sums up Rev Maitland Woods as “a really interesting character”.</span></p><p style="text-align: left; line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“He was born in the UK. He was educated in Oxford, then he came to Australia. And he served as a chaplain with the Queensland mounted forces,” she says.</span></p><p style="text-align: left; line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Rev Maitland Woods was also an amateur archaeologist, which Dr Robertson says “wasn’t as uncommon as you would think” at the time.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/image-65c40a79.png" style="width:1000px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bottom " style="">Reverend William Maitland Woods lobbied for the Shellal Mosaic to be brought to Australia. (Supplied: The State Library of Queensland)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">The Shellal Mosaic had been damaged in the fighting, so&nbsp;Rev Maitland Woods convinced his superiors that it needed to be “saved” and was given approval to dig it up.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">So, under his<strong> </strong>watchful eye, around 30 Australian and New Zealand soldiers worked beneath the searing sun, and occasional enemy airplanes, to remove the mosaic from the ground.</span></p>
+                </div>
+            </div>
+        
+        </section>
+            <div class="parallax-container" id="parallax-1764036291584-4i0extnda">
+            <div class="parallax-bg-wrapper">
+            <div class="parallax-bg active" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax1_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax2_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax3_1.jpg');"></div>
+            </div>
+            <div class="parallax-content">
+            <div class="parallax-slide" data-slide-index="0">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">“These men took so much pride, this was part of their ANZAC story, to have found the mosaic,” Dr Robertson says.</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="1">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">They used glue, canvas and plaster to keep the patterns in place, and then packed it into more than 60 crates.</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="2">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">These crates were sent to Cairo, where a British committee on war trophies would decide its fate.</span></p>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <section class="section" style="min-height: 300px; background-color: #ffffff;">
+            
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif; float: none; display: inline;">That is when the real drama began.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>‘A very big fight’</strong></span></h1><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">As World War I ground&nbsp;on, there was talk about establishing an Australian war museum.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“[Soldiers were] told to collect things that were relevant to the war, to perhaps go into this future war museum … It became an obsession,” Dr Robertson says.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“The Australians were known as perhaps the most avid, and sometimes ghoulish, collectors.”</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/image-1322b6d3.png" style="width:1000px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bottom " style="">William Maitland Woods standing amid ancient ruins in Shellal in 1917. (Supplied: The State Library of Queensland)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">But the British had other ideas.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“The British wanted all war trophies to go to the Imperial War Museum in the UK … [It was] a very big fight,” Dr Robertson says.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/image-67f4c5da.png" style="width:1000px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bottom " style="">Dr Emily Robertson has traced the complex past of the Shellal Mosaic. (Supplied: WildBear Entertainment)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">A&nbsp;letter from Australia’s Department of Defence at that time reads: “Britain already has a history in traditions and relics and trophies extending back for centuries … whereas Australia has none here other than what she draws from the mother country”.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">It continues: “A nation is built upon pride of race and now that Australia is making history of her own, she requires every possible relic associated with this to help educate her children in that national spirit”.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Dr Robertson says behind this spat, it’s important to remember what the Australians had sacrificed during this war.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“Australians felt that they had sacrificed their lives … So underlying this is also [the thought],&nbsp;‘We died, 60,000 of us have died, you need to respect us for the sacrifice that we made’,” she says.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">But while the Shellal Mosaic was being held in this colonial custody battle, the reverend took matters into his own hands.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>Other locations</strong></span></h1><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Rev Maitland Woods was so determined to get the mosaic back to Australia before Britain could claim it&nbsp;that he smuggled some of it back home.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">One piece ended up in St John’s Cathedral, one of the grandest old churches in Brisbane.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“The whole country was dealing with trauma. I think, in that great ferment, people were really trying to make sense of what had happened and trying to get to a point where the sacrifice wasn’t in vain,” says the Very Reverend Dr Peter Catt, the dean of St John’s.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">But that doesn’t mean he’s comfortable with having a piece of the mosaic in his church.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“For me, it’s a bit of a conflicted article. I’m a great believer in how stuff like this really belongs where it came from, rather than being appropriated by us,” he says.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper fullwidth-wrapper">
+      <figure class="fullwidth-image-block" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/fullimg.jpg" class="fullwidth-image" style="width:100%;display:block;object-fit:contain;height:auto;" alt="" />
+        <figcaption class="image-caption bottom " style="">A piece of the Shellal Mosaic in the floor of St John's Cathedral, Brisbane. (Supplied: WildBear Entertainment)</figcaption>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">It’s not just the mosaic that travelled across the world.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Buried beneath the church ruins in Shellal, there was a collection of bones. These have ended up in St Anne’s Anglican Church in the Sydney suburb of Strathfield.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“I don’t know why they didn’t just leave the bones buried in Palestine. You find a grave, dig [the bones] up, ship them halfway around the world. It’s pretty undignified,” says Reverend Roger Kay, the rector of St Anne’s.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/sbs1.jpg" style="width:400px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bubble " style="">Reverend Roger Kay at St Anne's in Sydney. (Supplied: WildBear Entertainment)</figcaption>
+      </div>
+    
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/sbs2.jpg" style="width:400px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bubble " style="">One piece of the mosaic ended up in the church of the Very Reverend Dr Peter Catt. (ABC News: Brittney Kleyn)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">An inscription in the Shellal church named its builder as ‘George’, meaning some Australians thought they’d found the bones of St George.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">But St George didn’t end up in Strathfield — the historic St George was likely dead and buried around two centuries before the Shellal church was constructed.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>‘It <em>is</em> the wall’</strong></span></h1><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">In the end, Britain relented and gave up the Shellal Mosaic to Australia.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“It was [later] transferred to Canberra when the war memorial was being built, to be included in one of the foundational walls in the lower level of the memorial,” says Ryan Johnston, a former head of art at the Australian War Memorial.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/image-4b3b7a48.png" style="width:1000px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bottom " style="">Ryan Johnston previously worked at the Australian War Memorial. (Supplied: WildBear Entertainment)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“[So] it’s concreted into the wall,” Johnston says.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“It <em>is</em> the wall.”</span></p>
+                </div>
+            </div>
+        
+        </section>
+            <div class="parallax-container" id="parallax-1764036291584-c1a5aqyd7">
+            <div class="parallax-bg-wrapper">
+            <div class="parallax-bg active" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax1_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax2_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax3_1.jpg');"></div>
+            </div>
+            <div class="parallax-content">
+            <div class="parallax-slide" data-slide-index="0">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">But was all this legal? Taking art from a war zone and turning it into a museum wall?</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="1">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">“What I would say is that I think it’s a good rule of thumb not to take things that don’t belong to you,” Johnston says.</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="2">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">“And if you are a museum that discovers you have things in your collection that shouldn’t really be there, you should at least offer to give them back.”</span></p>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <section class="section" style="min-height: 300px; background-color: #ffffff;">
+            
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif; float: none; display: inline;">Johnston isn’t alone in that view.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>‘Where is our cultural heritage?’</strong></span></h1><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Jericho, one of the oldest cities in the world, is located deep within the Palestinian Territories.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Elaborate mosaics have been made around there for thousands of years, painstakingly constructed out of millions of tiny tesserae.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Inside the Jericho Mosaic Centre, the ancient art of hammering out tesserae and creating mosaics is being kept alive.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper fullwidth-wrapper">
+      <figure class="fullwidth-image-block" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/fullimg2.jpg" class="fullwidth-image" style="width:100%;display:block;object-fit:cover;height:1190px;" alt="" />
+        <figcaption class="image-caption bottom " style="">Jericho is among the oldest cities in the world. (Getty Images: Haamirisyuan Aidil Morzailan/EyeEm)</figcaption>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">And there’s a familiar sight on the side of the centre: the Shellal Mosaic.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“We decided to make a copy of the [Shellal] Mosaic, a replica to show the people,” explains Osama Hamdan, who works with the Jericho Mosaic Centre.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“The Palestinian people, they have to know their cultural heritage, at least they can see a copy.”</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">The replica also has another important purpose — to protest.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“I wanted to send a message: Where is our cultural heritage? People don’t live just on water and bread, they need something else,” Hamdan says.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">What does he think of the Australians who took it?</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“They didn’t own it. It was not theirs.”</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">And the Palestinians aren’t the only ones in this part of the world who want the mosaic returned.</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>A ‘war crime’?</strong></span></h1><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">In nearby Jerusalem, someone else has a different opinion of what should happen to the mosaic.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">Dr Jon Seligman works with the Israel Antiquities Authority.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">During World War I, Australians claimed they were “saving” the mosaic.&nbsp;</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">He disagrees.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“The way you save something like this is to cover it with earth. Obviously, they wanted it. That’s the bottom line. There was no reason to remove it,” Dr Seligman says.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">If it happened today, how would the world react?</span></p><blockquote><blockquote><h2><span style="font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>“It would be considered today a war crime. This is stolen property.”</strong></span></h2><p></p></blockquote></blockquote><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">The Shellal Mosaic was taken from land that was&nbsp;known then as Palestine. Now that area is governed by the modern-day state of Israel.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“I think ultimately it should be returned to where it came from. This is property which should be returned to the legal owners — that’s the state of Israel,” Dr Seligman says.</span></p>
+                </div>
+            </div>
+        
+    <div class="block-wrapper">
+      <figure class="image-block">
+        <div class="image-grid">
+            
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/sbs3.jpg" style="width:400px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bubble " style="">Osama Hamdan wants the Shellal Mosaic to be returned to the Middle East. (Supplied: WildBear Entertainment)</figcaption>
+      </div>
+    
+      <div class="image-cell" style="position:relative;">
+        <img src="https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/sbs4.jpg" style="width:400px;max-width:100%;height:auto;object-fit:contain;object-position:center;display:block;" />
+        <figcaption class="image-caption bubble " style="">Dr Jon Seligman says the mosaic should be returned to where it came from. (Getty Images: Petras Malukas)</figcaption>
+      </div>
+    
+        </div>
+      </figure>
+    </div>
+  
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">He says it doesn’t matter that when it was taken, there was no modern-day state of Israel.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“For me, it doesn’t change it. For international law, that could be an issue.”</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>What does the Australian War Memorial say?</strong></span></h1><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">The Australian War Memorial declined an interview, but in a statement said:</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“During the Second Battle of Gaza, on 17 April 1917, a group of Australian signalers discovered the mosaic, an extraordinary example of Byzantine art dating from 561–562 CE, the end of the Golden Age of Justinian I. This is now known as the Shellal Mosaic.&nbsp;</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“The mosaic was installed at the Australian War Memorial in 1941, placed on a structural wall under the Hall of Memory. The Shellal Mosaic is currently undergoing conservation.”</span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>‘An object has lots of meanings’</strong></span></h1><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">This single artwork from the Middle East, scattered across Australia, once wanted by Britain, now wanted by Palestinians and Israelis, tells more than one story.</span></p><blockquote><h2><span style="font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>“An object has lots of meanings. Sometimes that meaning can be given to it well after it was made,” Dr Robertson says.</strong></span></h2><p></p></blockquote><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“It absolutely represents this very strange story about a devout Christian man who could see a Byzantine mosaic representing the story of Australians, who were, in his mind, on a crusade,” she says.</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">“For me, as a First World War historian, it shows us how people needed to bring the war back home because it was so distant and people didn’t understand either the violence or the wonder of what they were seeing.”</span></p><p style="line-height: 1.5;"><span style="font-size: 24px; font-family: Calibri, &quot;Segoe UI&quot;, Roboto, Arial, Helvetica, sans-serif;">But all things considered, what does it mean for the people it was taken from?</span></p>
+                </div>
+            </div>
+        
+        </section>
+            <div class="parallax-container" id="parallax-1764036291584-3t38vhxjp">
+            <div class="parallax-bg-wrapper">
+            <div class="parallax-bg active" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax1_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax2_1.jpg');"></div>
+            <div class="parallax-bg" style="background-image: url('https://mana-feng.github.io/parallex-plugin-for-newsworthy//2025/11/images/parallax3_1.jpg');"></div>
+            </div>
+            <div class="parallax-content">
+            <div class="parallax-slide" data-slide-index="0">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">“Each mosaic tells a story and we would like to show the people our cultural heritage now,” Osama Hamdan says.</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="1">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">“If they know their history, maybe it will help them to support their identity. I am Muslim. But before being Muslim, I was Christian. Then before being Christian, I was Jewish. I am not coming from nothing. I have a base. I have a foundation.&nbsp;</span></p>
+                </div>
+            </div>
+            <div class="parallax-slide" data-slide-index="2">
+                <div class="parallax-slide-content">
+                    <p><span style="color: rgb(0, 0, 0); font-size: 18px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif; float: none; display: inline;">“We have a lot of things in common. This is the message that mosaics can tell you, that cultural heritage can tell you.”</span></p>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <section class="section" style="min-height: 300px; background-color: #ffffff;">
+            
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <p><span style="font-size: 20px;"><strong>Watch Stuff the British Stole on </strong></span><a target="_blank" rel="noopener noreferrer" href="https://iview.abc.net.au/show/stuff-the-british-stole"><span style="font-size: 20px;"><strong>ABC iview</strong></span></a><span style="font-size: 20px;"><strong> and listen to ABC RN’s Stuff the British Stole </strong></span><a target="_blank" rel="noopener noreferrer" href="https://www.abc.net.au/radionational/programs/stuff-the-british-stole"><span style="font-size: 20px;"><strong>podcast</strong></span></a><span style="font-size: 20px;"><strong> on the ABC listen app.</strong></span></p>
+                </div>
+            </div>
+        
+            <div class="block-wrapper">
+                <div class="text-block" style="max-width: 65ch;">
+                    <h1><span style="font-size: 48px; font-family: &quot;Times New Roman&quot;, Times, serif;"><strong>Credits:</strong></span></h1><p></p><p style="line-height: 1.5;"><span style="font-size: 20px;"><strong>Reporting and writing</strong>:&nbsp;</span><a target="_blank" rel="noopener noreferrer" href="https://www.abc.net.au/radionational/marc-fennell/3010492"><span style="font-size: 20px;">Marc Fennell</span></a><span style="font-size: 20px;"> and </span><a target="_blank" rel="noopener noreferrer nofollow" href="https://www.abc.net.au/news/nick-baker/13384586"><span style="font-size: 20px;">Nick Baker</span></a><span style="font-size: 20px;"> for </span><a target="_blank" rel="noopener noreferrer nofollow" href="https://iview.abc.net.au/show/stuff-the-british-stole"><span style="font-size: 20px;">Stuff the British Stole</span></a><span style="font-size: 20px;"><br><strong>Editor</strong>: Alexandra Spring<br><strong>Digital production</strong>: </span><a target="_blank" rel="noopener noreferrer nofollow" href="https://www.abc.net.au/news/nick-baker/13384586"><span style="font-size: 20px;">Nick Baker</span></a><span style="font-size: 20px;"><br><strong>Graphics</strong>: Luke Tribe<br><strong>Photos</strong>:&nbsp;The State Library of Queensland, WildBear Entertainment, Brittney Kleyn, Getty Images<br><strong>ABC Arts executive producer</strong>: Kalita Corrigan<br><strong>For WildBear Entertainment</strong>: Zoe Whittaker, Kate Pappas, Andrew McLellan<br><strong>With thanks to</strong>: Sashka Koloff, Amruta Slee, Cath Dwyer, </span><a target="_blank" rel="noopener noreferrer nofollow" href="https://www.abc.net.au/news/rosanna-ryan/167196"><span style="font-size: 20px;">Rosanna Ryan</span></a></p><p style="line-height: 20px;"><span style="font-size: 20px;"><strong>Odyssey format by </strong></span><a target="_blank" rel="noopener noreferrer nofollow" class="FormatCredit__tag" href="https://www.abc.net.au/news/interactives/"><span style="color: rgb(16, 49, 106); font-size: 20px; font-family: abcsans, -apple-system, blinkmacsystemfont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, arial, sans-serif;"><strong>ABC News Story Lab</strong></span></a></p>
+                </div>
+            </div>
+        
+        </section>
+        </div>
+</body>
+</html>
