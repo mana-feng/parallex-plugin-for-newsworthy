@@ -65,13 +65,14 @@ export async function addImageBlock(context, src, sourceType = 'url') {
             id: Date.now() + Math.random(),
             src,
             sourceType, // 'url' for external URLs, 'upload' for uploaded files (data URLs)
-            width: Math.min(300, naturalW),
-            height: Math.min(300, naturalH),
+            width: naturalW,
+            height: naturalH,
             aspectRatio: ratio,
             keepRatio: true,
             caption: '',
             captionPosition: 'bottom',
             captionBubbleAnimated: false,
+            captionFontSize: '0.9rem',
         }
 
         const blk = currBlock.value
@@ -181,6 +182,7 @@ export async function addFullWidthImageBlock(context, src, sourceType = 'url') {
                 aspectRatio,
                 captionPosition: 'bottom',
                 captionBubbleAnimated: false,
+                captionFontSize: '0.9rem',
                 mode: 'auto',
                 height: 400,      // only in mode='fixed'
                 caption: '',
@@ -252,6 +254,7 @@ export async function addFloatImageBlock(context, src, sourceType = 'url') {
                 keepRatio: true,
                 aspectRatio: aspectRatio,
                 caption: '',
+                captionFontSize: '0.9rem',
             },
             text: '<p>Enter your text here…</p>',
         }
@@ -373,8 +376,6 @@ export async function processImageUpload(file, imageType, context, onSuccess, on
             await addImageBlock(context, result.localUrl, 'local')
         } else if (imageType === 'fullwidth') {
             await addFullWidthImageBlock(context, result.localUrl, 'local')
-        } else if (imageType === 'float') {
-            await addFloatImageBlock(context, result.localUrl, 'local')
         }
 
         if (onSuccess) onSuccess(result.localUrl)
@@ -421,7 +422,7 @@ export async function addImageFromUrl(url, imageType, context) {
  */
 export function getImageBlockCSS() {
     return `
-        /* Image Block Styles - matching editor styles */
+        /* Base Image Block */
         .image-block {
             display: flex;
             justify-content: center;
@@ -431,12 +432,12 @@ export function getImageBlockCSS() {
         }
 
         .block-wrapper.fullwidth-wrapper {
-            width: 100%;      
+            width: 100%;
             max-width: 100%;
             margin: 0;
             padding: 0;
         }
-        
+
         .image-block img {
             max-width: 100%;
             height: auto;
@@ -444,52 +445,45 @@ export function getImageBlockCSS() {
             object-fit: cover;
             transition: all 0.2s ease;
         }
-        
-        /* Fullwidth Image Block Styles */
-        .fullwidth-image-block {
-            width: 100%;
-            display: block;
-            position: relative;
-            margin: 0;
-            padding: 0;
+
+        /* Multi-Image Grid */
+        .image-grid {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: center;
         }
 
-        .fullwidth-wrapper + .fullwidth-wrapper .fullwidth-image-block {
-            margin-top: clamp(8px, 1.5vw, 16px);
-        }
-        
-        .fullwidth-image-block img {
-            width: 100%;
-            max-width: 100%;
-            height: auto;
-            border-radius: 0;
-            display: block;
-            position: relative;
-            transition: all 0.2s ease;
+
+        .image-cell {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* Caption setting */
+        .image-selected {
+            outline: 2px solid #8ab4ff;
+            outline-offset: 2px;
+        }
+
+        /* Caption Styles */
         .image-caption {
             font-size: 0.9rem;
-            line-height: 1.4;
-            font-style: italic;
             color: #666;
+            margin-top: 4px;
+            line-height: 1.4;
+            text-align: center;
+            font-style: italic;
         }
 
         /* bottom caption */
-            .image-caption.bottom {
+        .image-caption.bottom {
             text-align: center;
             margin-top: 6px;
             display: block;
             width: 100%;
-        }
-
-        .fullwidth-image-block.bottom .image-caption {
-            text-align: center;
-            color: #666;
-            margin-top: 6px;
-            font-size: 0.9rem;
-            font-style: italic;
         }
 
         /* bubble caption */
@@ -506,13 +500,14 @@ export function getImageBlockCSS() {
             max-width: 70%;
             opacity: 0;
             transition: opacity 0.3s ease;
+            pointer-events: none;
         }
 
         .image-block:hover .image-caption.bubble,
         .fullwidth-image-block:hover .image-caption.bubble {
             opacity: 1;
         }
-        
+
         .image-caption.bubble.animated {
             animation: fadeInBubble 0.4s ease-in-out forwards;
         }
@@ -522,79 +517,57 @@ export function getImageBlockCSS() {
             to { opacity: 1; transform: translateY(0); }
         }
         
-        /* Float Image Container - matching editor layout */
-        .float-image-container {
-            display: flex;
-            gap: clamp(0.75rem, 2vw, 1rem);
-            align-items: flex-start;
-            flex-wrap: wrap;
-        }
-        
-        .float-text-content {
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        /* Float Image Block Styles */
-        .float-image-block {
-            display: block;
-            margin: 1em 0;
-            overflow: hidden;
-        }
-        
-        .float-image-block img {
+        /* Fullwidth Image Block */
+        .fullwidth-image-block {
             width: 100%;
+            max-width: 100%;
+            display: block;
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }
+
+        .fullwidth-image-block img {
+            width: 100%;
+            max-width: 100%;
             height: auto;
+            border-radius: 0;
             display: block;
-            border-radius: 4px;
+            position: relative;
+            transition: all 0.2s ease;
         }
-        
-        .float-image-block .image-caption {
-            font-size: 0.85rem;
+
+        .fullwidth-image-block .image-caption {
+            font-size: 0.9rem;
             color: #666;
-            margin: 4px 0 0;
+            margin-top: 4px;
+            line-height: 1.4;
+            text-align: center;
+            font-style: italic;
         }
 
-        .image-block.image-grid {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 24px;
-            margin: 20px auto;
-            width: 100%;
-        }
-
+        /* Responsive Adjustments */
         @media (max-width: 768px) {
-            .image-block.image-grid .image-cell {
+            .image-cell {
                 max-width: 100%;
             }
         }
-        
-        /* Responsive Design - Media Queries for Image Blocks */
+
         @media (max-width: 767px) {
-            .float-image-container {
-                flex-direction: column;
-            }
-            
             .float-image-block,
-            .float-text-content {
+            .float-image-text {
                 width: 100% !important;
-                order: unset !important;
             }
-            
+
             .float-image-block {
-                float: none !important;
                 margin: 10px auto !important;
                 text-align: center;
                 max-width: 90%;
             }
         }
-        
+
         @media (max-width: 479px) {
             .float-image-block {
-                float: none !important;
-                margin: 10px auto !important;
-                text-align: center;
                 max-width: 100%;
             }
         }
@@ -612,18 +585,19 @@ export function buildImageBlockHTML(block) {
 
     const imageHTML = block.images.map(img => {
         const src = localToLocalhost(img.src || '');
-        const w = img.width ? `width:${img.width}px;` : '';
-        const h = img.height ? `height:${img.height}px;` : '';
+        const w = img.width ? `width:${img.width}px;max-width:100%;` : 'max-width:100%;';
+        const h = img.keepRatio ? `height:auto;` : (img.height ? `height:${img.height}px;` : 'height:auto;');
         const fit = img.keepRatio ? 'object-fit:contain;' : 'object-fit:fill;';
         const captionPos = img.captionPosition || 'bottom';
         const captionAnim = img.captionBubbleAnimated ? 'animated' : '';
+        const captionFont = img.captionFontSize ? `font-size:${img.captionFontSize};` : '';
         const captionHTML = img.caption
-            ? `<figcaption class="image-caption ${captionPos} ${captionAnim}">${img.caption}</figcaption>`
+            ? `<figcaption class="image-caption ${captionPos} ${captionAnim}" style="${captionFont}">${img.caption}</figcaption>`
             : '';
 
         return `
       <div class="image-cell" style="position:relative;">
-        <img src="${src}" style="${w}${h}${fit}object-position:center;max-width:100%;display:block;" alt="" />
+        <img src="${src}" style="${w}${h}${fit}object-position:center;display:block;" />
         ${captionHTML}
       </div>
     `;
@@ -631,8 +605,10 @@ export function buildImageBlockHTML(block) {
 
     return `
     <div class="block-wrapper">
-      <figure class="image-block image-grid">
-        ${imageHTML}
+      <figure class="image-block">
+        <div class="image-grid">
+            ${imageHTML}
+        </div>
       </figure>
     </div>
   `;
@@ -655,8 +631,9 @@ export function buildFullwidthImageBlockHTML(block) {
     const heightStyle = mode === 'fixed' ? `height:${height}px;` : 'height:auto;';
     const captionPos = img.captionPosition || 'bottom';
     const captionAnim = img.captionBubbleAnimated ? 'animated' : '';
+    const captionFont = img.captionFontSize ? `font-size:${img.captionFontSize};` : '';
     const captionHTML = img.caption
-        ? `<figcaption class="image-caption ${captionPos} ${captionAnim}">${img.caption}</figcaption>`
+        ? `<figcaption class="image-caption ${captionPos} ${captionAnim}" style="${captionFont}">${img.caption}</figcaption>`
         : '';
 
     return `
@@ -688,19 +665,20 @@ export function buildFloatImageBlockHTML(block) {
     const img = block.image
     // For export, URLs may already be base64 (from exportHelpers), so only convert if it's local://
     // For display, convert local:// to localhost URL
-    const src = img.src && img.src.startsWith('local://') 
-        ? localToLocalhost(img.src) 
+    const src = img.src && img.src.startsWith('local://')
+        ? localToLocalhost(img.src)
         : (img.src || '')
     const align = img.align || 'right'
     const widthPercent = img.widthPercent || 45
-    
+
     // Handle caption position and animation
     const captionPos = img.captionPosition || 'bottom'
     const captionAnim = img.captionBubbleAnimated ? 'animated' : ''
+    const captionFont = img.captionFontSize ? `font-size:${img.captionFontSize};` : '';
     const captionHTML = img.caption
-        ? `<figcaption class="image-caption ${captionPos} ${captionAnim}">${img.caption}</figcaption>`
-        : ''
-    
+        ? `<figcaption class="image-caption ${captionPos} ${captionAnim}" style="${captionFont}">${img.caption}</figcaption>`
+        : '';
+
     const text = block.text || '<p></p>'
 
     return `

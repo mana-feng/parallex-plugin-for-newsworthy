@@ -1,11 +1,10 @@
 <template>
   <button 
-    class="nw-btn nw-btn-accent update-btn" 
+    class="update-btn" 
     @click="handleClick"
     :disabled="disabled || isUpdating"
   >
-    <span class="nw-icon">{{ isUpdating ? '⏳' : '⬆' }}</span>
-    <span>{{ isUpdating ? 'Updating...' : 'Update' }}</span>
+    {{ isUpdating ? '⏳ Updating...' : '⬆ Update' }}
   </button>
 </template>
 
@@ -120,7 +119,53 @@ const handleClick = async () => {
 
 <style scoped>
 .update-btn {
-  /* Additional styles for update button if needed */
+  position: relative;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e3a8a;
+  background: #ffffff;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+  box-shadow: 0 1px 0 rgba(37, 99, 235, 0.12);
+  overflow: hidden;
+}
+
+.update-btn:hover:not(:disabled) {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+  transform: translateY(-1px);
+}
+
+.update-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.update-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100%);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+}
+
+.update-btn:hover::after {
+  left: 120%;
+}
+
+.update-btn:disabled {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 </style>
 

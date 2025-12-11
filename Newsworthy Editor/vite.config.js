@@ -13,4 +13,15 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    // Proxy API requests to backend (optional, if using proxy)
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'http://localhost:3001',
+        changeOrigin: true,
+      }
+    }
+  },
 })

@@ -1,7 +1,6 @@
 <template>
-  <button class="nw-sidebar-btn nw-sidebar-btn-sm nw-sidebar-btn-secondary" @click.stop="handleClick">
-    <span class="btn-icon">📝</span>
-    <span>Add Text</span>
+  <button class="add-content-btn" @click.stop="handleClick">
+    + Add Text
   </button>
 </template>
 
@@ -25,13 +24,18 @@ const handleClick = () => {
 </script>
 
 <style scoped>
-.nw-sidebar-btn {
-  /* Additional specific styles for slide text buttons */
+.add-content-btn {
+  padding: 6px 12px;
+  background: #FF9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
 }
 
-.btn-icon {
-  margin-right: 4px;
-  font-weight: bold;
+.add-content-btn:hover {
+  background: #e68900;
 }
 </style>
 

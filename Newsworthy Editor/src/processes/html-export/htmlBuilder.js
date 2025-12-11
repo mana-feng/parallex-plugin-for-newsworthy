@@ -119,7 +119,8 @@ function buildSectionBlocksHTML(blocks) {
 
     blocks.forEach(block => {
         if (block.type === 'text') {
-            // TSB导出调用位置：文本块的静态HTML由 textBlockService.buildTextBlockHTML 生成
+            // Use buildTextBlockHTML from textBlockService
+            // This handles width, HTML content, and alignment
             blocksHTML += buildTextBlockHTML(block, false)
         } else if (block.type === 'image') {
             // Use complete image block builder with all properties

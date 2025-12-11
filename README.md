@@ -1,731 +1,739 @@
-# 📰 Newsworthy Editor
+# Docker Deployment Guide
 
-An immersive long-form multimedia article editor for creating visually rich, scrollable web stories. Design magazine-quality articles with sections, text, images, and videos, then publish directly to GitHub Pages.
+This guide provides complete instructions for deploying the Newsworthy Editor project using Docker.
 
-> **中文文档**: 查看 [README-CN.md](README-CN.md) 获取完整的中文使用指南
-> 
-> **📚 Full Documentation**: See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for comprehensive technical documentation including API endpoints, architecture details, and developer guide.
+## Table of Contents
 
----
-
-## 📋 Table of Contents
-
-1. [Quick Start](#-quick-start)
-2. [Features](#-features)
-3. [How to Use](#-how-to-use)
-4. [Server Management](#-server-management)
-5. [FAQ](#-faq)
-6. [Troubleshooting](#-troubleshooting)
-7. [Best Practices](#-best-practices)
+- [Quick Start](#quick-start)
+- [Development Environment](#development-environment)
+- [Production Environment](#production-environment)
+- [Docker Hub Deployment](#docker-hub-deployment)
+- [Common Commands](#common-commands)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## ✨ Features
-
-- 🎨 **Section-Based Design** - Build articles with multiple customizable sections
-- 📝 **Rich Text Editing** - TipTap editor with advanced formatting (headings, colors, drop caps)
-- 🖼️ **Flexible Image Layouts** - Normal, full-width, or floating images with captions
-- 🎬 **YouTube Integration** - Embed videos that work in exported HTML files
-- 🌄 **Background Images** - Add parallax-like effects with section backgrounds
-- 💾 **Dual Storage** - Local SQLite database + GitHub Pages integration
-- 👁️ **Live Preview** - See exactly how your article will look
-- 🚀 **One-Click Publishing** - Deploy to GitHub Pages instantly
-- 🔒 **Secure** - AES-256 encrypted token storage
-
----
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
-- **Node.js**: v20.19.0+ or v22.12.0+
-- **npm**: v10.9.2+
-- **GitHub Account** (for publishing content)
 
-### Installation
+- Docker Desktop (Windows/Mac) or Docker Engine (Linux)
+- Docker Compose v2.0+
 
-1. **Clone the repository**
+**Verify installation:**
 ```bash
-git clone <repository-url>
-cd capstone-project-25t3-9900-h18e-almond-main
+docker --version
+docker compose version
 ```
 
-2. **Install dependencies**
+### One-Click Start
+
+**Development Mode (Recommended for development):**
 ```bash
-# Install frontend dependencies
+# Windows
+./docker-start.bat
+
+# Linux/Mac
+chmod +x docker-start.sh
+./docker-start.sh
+
+# Or use directly
+./docker compose up -d
+```
+
+**Production Mode:**
+```bash
+./docker compose -f docker-compose.prod.yml up -d
+```
+
+**Access URLs:**
+- Development mode: Frontend http://localhost:5173 | Backend http://localhost:3001
+- Production mode: Frontend http://localhost | Backend http://localhost:3001
+
+---
+
+PS: If there are some network issues when starting Docker, such as failure in pulling the image, you can refer to the old script guide [README-OLD.md](README-OLD.md) for startup.
+
+## Development Environment
+
+### Features
+
+- ✅ Hot Reload: Code changes automatically refresh
+- ✅ Source Mount: Edit local files directly
+- ✅ Development Tools: Complete development dependencies
+
+### Startup Steps
+
+```bash
+# 1. Start services
+docker compose up -d
+
+# 2. View logs
+docker compose logs -f
+
+# 3. Stop services
+docker compose down
+```
+
+### Development Workflow
+
+```bash
+# Start development environment
+docker compose up -d
+
+# Edit code (in ./Newsworthy Editor/src/)
+# Frontend will automatically hot reload, no restart needed
+
+# Install new dependencies
 cd "Newsworthy Editor"
-npm install
+npm install <package-name>
+docker compose restart frontend
 
-# Install backend dependencies
-cd backend
-npm install
-cd ..
+# View logs
+docker compose logs -f frontend
+docker compose logs -f backend
+
+# Stop environment
+docker compose down
 ```
 
-### Starting the Application
+### Debugging Tips
 
-#### Windows Users
-Double-click the `start-servers.bat` file in the project root to automatically start both services.
-
-#### macOS/Linux Users
 ```bash
-chmod +x start-servers.sh
-./start-servers.sh
+# Enter container
+docker compose exec frontend sh
+docker compose exec backend sh
+
+# View resource usage
+docker stats
+
+# View container status
+docker compose ps
 ```
 
-#### Stopping the Servers
+---
 
-If you need to stop all running servers (useful when ports are already in use):
+## Production Environment
+
+### Features
+
+- ✅ Optimized Build: Production optimizations
+- ✅ Nginx Server: High-performance static file server
+- ✅ Minimal Image: Only includes runtime dependencies
+
+### Startup Steps
+
+```bash
+# 1. Build production images
+docker compose -f docker-compose.prod.yml build
+
+# 2. Start services
+docker compose -f docker-compose.prod.yml up -d
+
+# 3. View logs
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+### Configuration
+
+**Port Mapping:**
+- Frontend: 80 (HTTP)
+- Backend: 3001
+
+**Data Persistence:**
+- Database files are saved in `Newsworthy Editor/backend/data/` directory
+
+---
+
+## Docker Hub Deployment
+
+### Upload Images to Docker Hub
+
+#### Step 1: Configure Username
+
+**Important:** Before running the script, you must configure your Docker Hub username!
+
+Edit `build-and-push.bat` (Windows) or `build-and-push.sh` (Linux/Mac):
+```bash
+# Find and replace this line
+set DOCKERHUB_USERNAME=your-username  # Windows
+DOCKERHUB_USERNAME="your-username"    # Linux/Mac
+
+# Replace with your actual username, for example:
+set DOCKERHUB_USERNAME=myusername     # Windows
+DOCKERHUB_USERNAME="myusername"       # Linux/Mac
+```
+
+#### Step 2: Login to Docker Hub
+
+```bash
+docker login
+# Enter your Docker Hub username and password (or access token)
+```
+
+**Tip:** If using an access token (recommended), generate a Personal Access Token in Docker Hub settings.
+
+#### Step 3: Build Images
+
+```bash
+# Build Backend
+docker build -t <your-username>/newsworthy-backend:latest "Newsworthy Editor/backend"
+
+# Build Frontend (production version)
+docker build --target production -t <your-username>/newsworthy-frontend:latest "Newsworthy Editor"
+```
+
+#### Step 4: Push Images
+
+**Note:** If the repository doesn't exist, Docker Hub will automatically create it on first push (requires verified account).
+
+```bash
+docker push <your-username>/newsworthy-backend:latest
+docker push <your-username>/newsworthy-frontend:latest
+```
+
+#### Automation Script
+
+**Using the provided script:**
+```bash
+# Edit build-and-push.sh or build-and-push.bat, replace username
+# Linux/Mac
+./build-and-push.sh v1.0.0
+
+# Windows
+build-and-push.bat v1.0.0
+```
+
+### Pull and Use from Docker Hub
+
+**📖 Detailed Guide:** See [DOCKER-HUB-PULL.md](./DOCKER-HUB-PULL.md) for complete instructions.
+
+#### Method 1: Using Convenience Script (Simplest, Recommended)
 
 **Windows:**
-```batch
-# Double-click stop-servers.bat
-# Or run in terminal:
-stop-servers.bat
-```
-
-**macOS/Linux/Git Bash:**
 ```bash
-chmod +x stop-servers.sh
-./stop-servers.sh
+# 1. Edit docker-pull-start.bat, configure Docker Hub username (if needed)
+# 2. Run
+docker-pull-start.bat
 ```
 
-The stop script will automatically find and terminate processes using ports:
-- `5173` - Frontend Vite Dev Server
-- `5174` - Frontend HMR
-- `3001` - Backend API Server
-
-#### Manual Start
-
-**Option 1: Two Terminals (Recommended)**
-
-Terminal 1 - Frontend:
+**Linux/Mac:**
 ```bash
-cd "Newsworthy Editor"
-npm run dev
+# 1. Edit docker-pull-start.sh, configure Docker Hub username (if needed)
+# 2. Run
+chmod +x docker-pull-start.sh
+./docker-pull-start.sh
 ```
 
-Terminal 2 - Backend:
+#### Method 2: Using docker-compose.hub.yml
+
 ```bash
-cd "Newsworthy Editor/backend"
-npm start
+# 1. Edit docker-compose.hub.yml, replace username (if needed)
+# 2. Pull and start
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+
+# View logs
+docker compose -f docker-compose.hub.yml logs -f
+
+# Stop services
+docker compose -f docker-compose.hub.yml down
 ```
 
-**Option 2: PowerShell (Windows)**
-```powershell
-# Frontend
-cd "Newsworthy Editor"; npm run dev
+#### Method 3: Manual Pull
 
-# In another terminal/window
-cd "Newsworthy Editor\backend"; npm start
-```
-
-**Option 3: Bash (macOS/Linux)**
 ```bash
-# Frontend
-cd "Newsworthy Editor" && npm run dev
+# Pull images
+docker pull manafeng/newsworthy-backend:latest
+docker pull manafeng/newsworthy-frontend:latest
 
-# In another terminal
-cd "Newsworthy Editor/backend" && npm start
+# View images
+docker images | grep newsworthy
+
+# Run containers (refer to docker-compose.hub.yml configuration)
 ```
 
-Once started successfully:
-- **Frontend**: http://localhost:5173 (or 5174 if 5173 is in use)
-- **Backend**: http://localhost:3001
+**Access URLs:**
+- Frontend: http://localhost
+- Backend: http://localhost:3001
 
----
+### Version Management
 
-## ⚙️ Initial Configuration
+**Tagging Strategy:**
+- `latest` - Latest stable version
+- `v1.0.0` - Specific version number
+- `dev` - Development version (frontend only)
 
-### Step 1: Configure GitHub Settings
-
-1. **Open Settings Panel**
-   - Click the **⚙️ Settings** button in the sidebar
-
-2. **Get GitHub Personal Access Token**
-   - Visit https://github.com/settings/tokens
-   - Click **Generate new token (classic)**
-   - Select permissions:
-     - ✅ `repo` (Full repository access)
-     - ✅ `workflow` (Optional, for triggering GitHub Actions)
-   - Click **Generate token**
-   - **Copy the token immediately** (shown only once)
-
-3. **Fill in Settings**
-   ```
-   GitHub Token: ghp_xxxxxxxxxxxxxxxxxxxx (the token you just copied)
-   GitHub Username: your-username
-   Repository Name: your-repo-name
-   Branch: main (or gh-pages)
-   Base URL: https://your-username.github.io/your-repo-name
-   ```
-
-4. **Test Connection**
-   - Click the **Test Connection** button
-   - Confirm "✅ Connection successful" is displayed
-
-5. **Save Configuration**
-   - Click **Save Settings**
-
-### Step 2: Enable GitHub Pages
-
-1. Visit your GitHub repository
-2. Go to **Settings** → **Pages**
-3. Configure:
-   - **Source**: Deploy from a branch
-   - **Branch**: `main` (or your configured branch)
-   - **Folder**: `/ (root)`
-4. Click **Save**
-
-Configuration complete! 🎉
-
----
-
-## 📝 How to Use
-
-### 🏗️ Building Your Article
-
-#### 1. Create Sections
-- Click **+ Add New Section** in the sidebar
-- Sections are the building blocks of your article
-- Each section can have:
-  - Custom background (solid color or image)
-  - Custom height
-  - Multiple content blocks
-
-#### 2. Section Settings
-Click on any section to customize:
-- **Background Type**: Choose color or image
-- **Background Color**: Pick from color palette
-- **Background Image**: Upload image for parallax effects
-- **Height**: Adjust section height in pixels
-
-#### 3. Add Content Blocks
-
-**Text Block** 📝
-- Click **+ Add Text Block**
-- Rich text editor with formatting options:
-  - Headings (H1-H6)
-  - Bold, Italic, alignment
-  - Text color and font size
-  - Drop cap effects
-  - Custom text width (for readability)
-
-**Image Block** 🖼️
-- Click **+ Add Image Block**
-- Choose image type:
-  - **Normal**: Standard image with caption
-  - **Full Width**: Spans entire section width
-  - **Float & Text**: Image with text wrapping around it
-- Add images via URL or upload
-- Customize:
-  - Width and height
-  - Caption position (below/right/bubble)
-  - Caption animation
-  - Aspect ratio lock
-
-**Video Block** 🎬
-- Click **+ Add Video Block**
-- Paste YouTube URL (supports multiple formats)
-- Video embeds directly in article
-- Smart export: works in downloaded HTML files
-
----
-
-### 🎨 Content Editing
-
-#### Text Formatting
-Select text in any text block to access:
-- **Font Size**: Change text size
-- **Text Color**: Choose from color picker
-- **Alignment**: Left/Center alignment
-- **Drop Cap**: Create magazine-style first letter
-- **Text Width**: Control line length for readability
-
-#### Image Customization
-Select any image block to adjust:
-- Dimensions (width × height)
-- Caption text and position
-- Aspect ratio preservation
-- Float direction (for float-image type)
-
-#### Video Settings
-Select video block to modify:
-- Video dimensions
-- YouTube video ID
-
----
-
-### 💾 Saving & Publishing
-
-#### Save to GitHub Pages 🚀
-1. Click **🚀 Save to GitHub Pages** in sidebar
-2. Enter filename (e.g., `my-article.html`)
-3. Confirm to publish
-4. Article appears at: `https://[username].github.io/[repo]/[filename].html`
-
-#### Storage Manager 📚
-Manage all your articles:
-- **View all saved articles**
-- **Load** previous work
-- **Rename** articles
-- **Delete** unwanted articles
-- **Pull from GitHub** to sync remote content
-
----
-
-### 👁️ Preview & Export
-
-#### Live Preview
-- Click **Preview** button in header
-- See exactly how your article will look
-- Press `ESC` to exit preview
-
-#### Export Features
-- Articles export as standalone HTML files
-- Includes all styling and content
-- YouTube videos work offline (smart fallback)
-- See `HOW_TO_VIEW_EXPORTED_HTML.md` for details
-
----
-
-## 🎯 Key Capabilities
-
-### Section Customization
-- **Background Type**: Solid colors or images
-- **Custom Heights**: Control section dimensions
-- **Visual Separation**: Each section is distinct and customizable
-- **Unlimited Sections**: Build articles as long as you need
-
-### Advanced Text Features
-- **Rich Formatting**: Bold, italic, headings (H1-H6)
-- **Typography Control**: Font size, text color, font family
-- **Drop Caps**: Magazine-style first letter effects
-- **Text Width Control**: Adjust line length (measured in `ch` units)
-- **Alignment**: Left and center text alignment
-
-### Image Block Types
-
-**1. Normal Image Block**
-- Standard images with flexible sizing
-- Multiple caption positions (below/right/bubble)
-- Animated caption effects
-- Aspect ratio lock option
-
-**2. Full-Width Image Block**
-- Spans entire section width
-- Two modes: auto-height or fixed-height
-- Perfect for hero images and dividers
-
-**3. Float Image Block**
-- Text wraps around the image
-- Float left or right
-- Adjustable width percentage
-- Great for magazine-style layouts
-
-### Video Integration
-- **YouTube Embeds**: Paste any YouTube URL
-- **Format Support**: Standard, shorts, live, embed URLs
-- **Smart Export**: Videos work in offline HTML files
-- **Responsive**: Auto-adjusts to screen size
-
----
-
-## 🔧 Server Management
-
-### Project Structure
-
+**Building Multiple Versions:**
+```bash
+docker build -t myusername/newsworthy-backend:v1.0.0 "Newsworthy Editor/backend"
+docker build -t myusername/newsworthy-backend:latest "Newsworthy Editor/backend"
+docker push myusername/newsworthy-backend:v1.0.0
+docker push myusername/newsworthy-backend:latest
 ```
-Newsworthy Editor/
-├── backend/              # Backend server
-│   ├── server.js        # Main server file
-│   ├── database.js      # Database operations
-│   ├── github.js        # GitHub integration
-│   ├── config-store.js  # Settings storage
-│   ├── crypto-utils.js  # Token encryption
-│   └── database.sqlite  # Local data storage
-├── src/                 # Frontend source code
-│   ├── components/      # Vue components
-│   ├── stores/          # Pinia state management
-│   ├── utils/           # Utility functions
-│   └── config/          # Configuration files
-│       └── api.js       # API configuration (port settings)
-└── public/              # Static assets
+
+---
+
+## Common Commands
+
+### Service Management
+
+```bash
+# Start services
+docker compose up -d
+
+# Stop services
+docker compose down
+
+# Restart services
+docker compose restart
+
+# Restart specific service
+docker compose restart frontend
+docker compose restart backend
+
+# View service status
+docker compose ps
+```
+
+### Build Management
+
+```bash
+# Build images
+docker compose build
+
+# Force rebuild (no cache)
+docker compose build --no-cache
+
+# Build and start
+docker compose up -d --build
+```
+
+### Log Management
+
+```bash
+# View all logs
+docker compose logs
+
+# Real-time log tracking
+docker compose logs -f
+
+# View specific service logs
+docker compose logs -f frontend
+docker compose logs -f backend
+
+# View last 100 lines
+docker compose logs --tail=100
+```
+
+### Container Operations
+
+```bash
+# Enter container
+docker compose exec frontend sh
+docker compose exec backend sh
+
+# Execute commands
+docker compose exec backend node -v
+docker compose exec frontend npm list
+
+# View resource usage
+docker stats
+```
+
+### Cleanup Operations
+
+```bash
+# Stop and remove containers, networks
+docker compose down
+
+# Stop and remove containers, networks, volumes (⚠️ will delete data)
+docker compose down -v
+
+# Clean unused resources
+docker system prune
+
+# Clean build cache
+docker builder prune
+```
+
+---
+
+## Configuration
+
+### Environment Variables
+
+**Backend Environment Variables:**
+```yaml
+environment:
+  - PORT=3001                    # Backend port
+  - DB_PATH=/app/data/database.sqlite  # Database path
+  - NODE_ENV=production          # Runtime environment
+```
+
+**Frontend Environment Variables:**
+```yaml
+environment:
+  - VITE_API_URL=http://localhost:3001  # Backend API URL
+```
+
+**Using .env file:**
+```env
+# .env
+BACKEND_PORT=3001
+VITE_API_URL=http://localhost:3001
+NODE_ENV=production
+```
+
+### Data Persistence
+
+**Data Directory:**
+```
+Newsworthy Editor/backend/data/
+└── database.sqlite
+```
+
+**Permission Settings (Linux/Mac):**
+```bash
+chmod -R 755 "Newsworthy Editor/backend/data"
 ```
 
 ### Port Configuration
 
-#### API Port Configuration
-```javascript
-// File: Newsworthy Editor/src/config/api.js
-const API_PORT = 3001;  // Change this to switch ports
-
-export const API_BASE_URL = `http://localhost:${API_PORT}/api`;
+**Modify Port Mapping:**
+```yaml
+ports:
+  - "3002:3001"  # Change host port to 3002
 ```
 
-#### Backend Port Configuration
-```javascript
-// File: Newsworthy Editor/backend/server.js
-const PORT = process.env.PORT || 3001;
-```
+### Network Configuration
 
-Or use environment variables:
-```bash
-set PORT=3002
-node "Newsworthy Editor/backend/server.js"
-```
-
-### Common Commands
-
-#### Frontend Development
-```bash
-cd "Newsworthy Editor"
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run preview  # Preview production build
-npm run lint     # Run linter
-```
-
-#### Backend Development
-```bash
-cd "Newsworthy Editor/backend"
-node server.js   # Start server
-```
+Services communicate through Docker network `newsworthy-network`, containers can access each other using service names:
+- Frontend accessing backend: `http://backend:3001`
+- Host access: Use `localhost` and mapped ports
 
 ---
 
-## 🔧 Technology Stack
+## Troubleshooting
 
-### Frontend
-- **Vue 3** - Progressive JavaScript framework
-- **TipTap** - Rich text editor based on ProseMirror
-- **Pinia** - State management
-- **Vite** - Fast build tool
+### Common Issues
 
-### Backend
-- **Express** - Web framework for Node.js
-- **Better-SQLite3** - Fast, synchronous SQLite database
-- **Octokit** - GitHub REST API client
-- **Multer** - File upload handling
+#### 1. Port Already in Use
 
-### Database Configuration
+**Error:** `bind: address already in use`
 
-#### SQLite Journal Modes
+**Solution:**
+```bash
+# Windows: Find process using port
+netstat -ano | findstr :3001
 
-The backend uses SQLite with **WAL (Write-Ahead Logging)** mode by default. This configuration affects how database files are managed:
+# Linux/Mac: Find process using port
+lsof -i :3001
 
-**WAL Mode (Current Default)** ✅
-```
-backend/
-├── database.sqlite       # Main database file
-├── database.sqlite-shm   # Shared memory file (temporary)
-└── database.sqlite-wal   # Write-ahead log file (temporary)
+# Modify port mapping in docker-compose.yml
+ports:
+  - "3002:3001"  # Use different port
 ```
 
-**Benefits:**
-- ✅ Better performance for concurrent operations
-- ✅ Improved write performance
-- ✅ Readers don't block writers
-- ✅ Ideal for multi-user scenarios
+#### 2. Database Permission Issues
 
-**Considerations:**
-- ⚠️ Creates 3 files instead of 1
-- ⚠️ Requires checkpoint operation before backup
-- ⚠️ `.shm` and `.wal` files are temporary and auto-managed
+**Error:** `EACCES: permission denied`
 
-**DELETE Mode (Alternative)**
-
-If you prefer a single database file, you can switch to DELETE mode:
-
-```javascript
-// File: Newsworthy Editor/backend/database.js (line 25)
-db.pragma('journal_mode = DELETE');  // Change from WAL to DELETE
+**Solution:**
+```bash
+# Linux/Mac
+chmod -R 755 "Newsworthy Editor/backend/data"
+# or
+chmod -R 777 "Newsworthy Editor/backend/data"
 ```
 
+#### 3. Container Won't Start
+
+**Check Steps:**
+```bash
+# 1. View detailed logs
+docker compose logs backend
+
+# 2. Check if image exists
+docker images | grep newsworthy
+
+# 3. Verify configuration
+docker compose config
+
+# 4. Try running manually
+docker run -it --rm <image-name> sh
 ```
-backend/
-└── database.sqlite       # Single file only
+
+#### 4. Health Check Failed
+
+**Solution:**
+```bash
+# Check health check endpoint
+docker compose exec backend curl http://localhost:3001/api/health
+
+# View service logs
+docker compose logs backend
+
+# Temporarily disable health check (for debugging)
+# Comment out healthcheck section in docker-compose.yml
 ```
 
-**Benefits:**
-- ✅ Only one database file
-- ✅ Simpler file management
-- ✅ Easier to backup (just copy the file)
-- ✅ Sufficient for single-user applications
+#### 5. Frontend Cannot Connect to Backend
 
-**Trade-offs:**
-- ⚠️ Slightly lower performance under high concurrency
-- ⚠️ Writers block readers during transactions
+**Check Steps:**
+```bash
+# 1. Check if backend is running
+docker compose ps backend
 
-**Which Mode to Choose?**
+# 2. Check network connection
+docker compose exec frontend ping backend
 
-| Scenario | Recommended Mode |
-|----------|------------------|
-| Single-user editor (typical use) | DELETE ✅ |
-| Multiple concurrent users | WAL ✅ |
-| Need simple backups | DELETE ✅ |
-| High-performance requirements | WAL ✅ |
-| Minimal file management | DELETE ✅ |
+# 3. Check environment variables
+docker compose exec frontend env | grep VITE_API_URL
 
-**Switching Between Modes:**
+# 4. View backend logs
+docker compose logs backend
+```
 
-1. Stop the backend server
-2. Delete temporary files (if switching from WAL):
+#### 6. Hot Reload Not Working
+
+**Solution:**
+```bash
+# 1. Check volume mount
+docker compose exec frontend ls -la /app/src
+
+# 2. Restart frontend service
+docker compose restart frontend
+
+# 3. View Vite logs
+docker compose logs frontend | grep -i vite
+```
+
+#### 7. Image Build Failed
+
+**Solution:**
+```bash
+# 1. Clean build cache
+docker builder prune
+
+# 2. Force rebuild
+docker compose build --no-cache
+
+# 3. View detailed build logs
+docker compose build --progress=plain
+```
+
+#### 8. Insufficient Disk Space
+
+**Solution:**
+```bash
+# View Docker disk usage
+docker system df
+
+# Clean unused resources
+docker system prune -a
+
+# Clean unused volumes
+docker volume prune
+```
+
+#### 9. Docker Hub Push Failed
+
+**Error:** `push access denied, repository does not exist or may require authorization`
+
+**Solution Steps:**
+
+1. **Check Username Configuration**
    ```bash
-   # Windows
-   del "Newsworthy Editor\backend\database.sqlite-shm"
-   del "Newsworthy Editor\backend\database.sqlite-wal"
-   
-   # macOS/Linux
-   rm "Newsworthy Editor/backend/database.sqlite-shm"
-   rm "Newsworthy Editor/backend/database.sqlite-wal"
+   # Make sure in build-and-push.bat or build-and-push.sh
+   # Replace 'your-username' with your actual Docker Hub username
    ```
-3. Edit `database.js` line 25 to change the mode
-4. Restart the backend server
 
-**Note:** For most users, the default WAL mode provides the best balance of performance and reliability. Only switch to DELETE mode if you specifically need simpler file management.
+2. **Login to Docker Hub**
+   ```bash
+   docker login
+   # Enter your Docker Hub username and password
+   ```
 
----
+3. **Verify Login Status**
+   ```bash
+   docker info | grep Username
+   # Should display your username
+   ```
 
-## ❓ FAQ
+4. **Create Repository (if needed)**
+   - Visit https://hub.docker.com/repositories
+   - Create `newsworthy-backend` and `newsworthy-frontend` repositories
+   - Or use private repositories
 
-### Port Conflicts
+5. **Check Permissions**
+   - Ensure you have push permissions
+   - If it's an organization repository, ensure you're a member with push permissions
 
-**Q: Getting `EADDRINUSE` error (port already in use)?**
+6. **Manual Test Push**
+   ```bash
+   # First build image
+   docker build -t your-username/newsworthy-backend:test "Newsworthy Editor/backend"
+   
+   # Try pushing
+   docker push your-username/newsworthy-backend:test
+   ```
 
-**A:** Solutions:
+**Common Errors and Fixes:**
 
-| Solution | Action | Time | Difficulty |
-|----------|--------|------|------------|
-| Wait for release | Wait 2-5 minutes and retry | 2-5 min | ⭐ |
-| Restart computer | Restart your computer | 5-10 min | ⭐ |
+1. **`push access denied, repository does not exist or may require authorization`**
+   - **Cause:** Not logged in or username configuration error
+   - **Fix:**
+     ```bash
+     # 1. Check username configuration in script
+     # Edit build-and-push.bat or build-and-push.sh, ensure username is correct
+     
+     # 2. Re-login
+     docker logout
+     docker login
+     
+     # 3. Verify login
+     docker info | grep Username  # Linux/Mac
+     docker info | findstr Username  # Windows
+     ```
 
-**Q: Why is the port still in use after running the stop script?**
+2. **`insufficient_scope: authorization failed`**
+   - **Cause:** Authentication token expired or insufficient permissions
+   - **Fix:**
+     ```bash
+     # Use Personal Access Token (recommended)
+     # 1. Visit https://hub.docker.com/settings/security
+     # 2. Create new Access Token
+     # 3. Use token as password to login
+     docker login
+     ```
 
-**A:** This is normal Windows behavior:
-- The process is terminated, but the port is in TIME_WAIT state
-- Wait 30-120 seconds for the system to automatically release it
-- Or restart your computer to immediately release all ports
+3. **`repository does not exist`**
+   - **Cause:** Repository doesn't exist
+   - **Fix:**
+     - Docker Hub will automatically create repository on first push (requires verified account)
+     - Or manually create: Visit https://hub.docker.com/repositories to create repository
 
-**Q: How to check if a port is in use?**
+4. **`unauthorized: authentication required`**
+   - **Cause:** Incorrect username or password
+   - **Fix:**
+     ```bash
+     docker logout
+     docker login
+     # Enter correct username and password (or access token)
+     ```
 
-**A:** Run this command:
+5. **How to Check if Image Tags are Correct**
+   ```bash
+   # View local images
+   docker images | grep newsworthy
+   
+   # Should display something like:
+   # your-username/newsworthy-backend    latest    abc123def456    ...
+   ```
+
+### Debugging Tips
+
 ```bash
-netstat -ano | findstr :3001
-```
-If there's output, the port is in use.
+# Verify configuration
+docker compose config
 
-**Q: How to find which process is using a port?**
+# View container details
+docker inspect newsworthy-backend
 
-**A:**
-```bash
-# Find process using port 3001
-netstat -ano | findstr :3001
+# Enter container for debugging
+docker compose exec backend sh
+cd /app
+node server.js  # Manually run to see errors
 
-# Example output:
-# TCP    0.0.0.0:3001    0.0.0.0:0    LISTENING    12345
-#                                                   ^^^^^ This is the Process ID
-
-# View process details
-tasklist /FI "PID eq 12345"
-```
-
-**Q: How to manually kill a process?**
-
-**A:**
-```bash
-taskkill /F /PID 12345
-```
-Replace `12345` with the actual process ID.
-
----
-
-## ❓ FAQ (Continued)
-
-### Publishing & GitHub
-
-**Q: Page not showing after publishing?**  
-A: Wait 1-2 minutes for GitHub Pages to build. Check if GitHub Pages is enabled in your repository settings.
-
-**Q: How to modify a published page?**  
-A: Click Edit in Storage Manager, make your changes, then click Publish to GitHub again.
-
-**Q: What if my GitHub token expires?**  
-A: Generate a new token at https://github.com/settings/tokens, then update it in the Settings panel.
-
-### Content & Media
-
-**Q: Can I upload images?**  
-A: Yes. Click the image button in the editor toolbar and select a local file or paste an image URL.
-
-**Q: How do YouTube videos work in exported HTML files?**  
-A: The exported HTML includes smart video handling:
-- **Direct opening (double-click)**: Click video thumbnail → Opens YouTube in new tab
-- **Web server mode**: Click thumbnail → Plays embedded in page
-
-**Q: What video formats are supported?**  
-A: Currently only YouTube videos. Supported URL formats:
-- Standard: `https://www.youtube.com/watch?v=VIDEO_ID`
-- Short link: `https://youtu.be/VIDEO_ID`
-- Shorts: `https://www.youtube.com/shorts/VIDEO_ID`
-- Live: `https://www.youtube.com/live/VIDEO_ID`
-- Embed: `https://www.youtube.com/embed/VIDEO_ID`
-
-### Technical
-
-**Q: Frontend can't connect to backend?**
-
-**A:** Check the following:
-1. Is the backend running?
-2. Is the port in `src/config/api.js` correct?
-3. Are there any errors in the browser console?
-4. Is your firewall blocking the connection?
-
-**Q: How to backup my content?**  
-A: Content is automatically saved in two places:
-- **GitHub repository** (online, version controlled)
-- **Local database** (`backend/database.sqlite` - backup this file regularly)
-
-**Q: Can I use this without GitHub?**  
-A: Yes, you can use the editor and save locally. However, publishing and sharing features require GitHub integration.
-
-**Q: Database errors?**
-
-**A:**
-```bash
-# 1. Check database file
-dir "Newsworthy Editor\backend\database.sqlite"
-
-# 2. If file is corrupted, delete and recreate
-del "Newsworthy Editor\backend\database.sqlite"
-cd "Newsworthy Editor\backend"
-node server.js  # Will automatically create new database
+# Check environment variables
+docker compose exec backend env
 ```
 
 ---
 
-## 🔍 Troubleshooting
+## Quick Reference
 
-### Scenario 1: Port Already in Use
+### Mode Comparison
 
-```bash
-# 1. Check port status
-netstat -ano | findstr :3001
+| Feature | Development Mode | Production Mode |
+|---------|-----------------|-----------------|
+| Frontend Service | Vite Dev Server | Nginx |
+| Frontend Port | 5173 | 80 |
+| Source Mount | ✅ Yes | ❌ No |
+| Hot Reload | ✅ Supported | ❌ Not Supported |
+| Build Optimization | ❌ No | ✅ Yes |
 
-# 2. Try stopping
-Double-click: stop-servers.bat
+### Port Mapping
 
-# 3. Wait for port release
-Wait 2-5 minutes
+| Service | Container Port | Host Port (Dev) | Host Port (Prod) |
+|---------|---------------|-----------------|------------------|
+| Frontend | 5173 / 80 | 5173 | 80 |
+| Backend | 3001 | 3001 | 3001 |
 
-# 4. If still not working, restart computer
+### File Structure
+
 ```
-
-### Scenario 2: Process Won't Terminate
-
-```bash
-# Most thorough solution: restart computer
-```
-
-### Scenario 3: Database Error
-
-```bash
-# 1. Check database file
-dir "Newsworthy Editor\backend\database.sqlite"
-
-# 2. If file is corrupted, delete and recreate
-del "Newsworthy Editor\backend\database.sqlite"
-cd "Newsworthy Editor\backend"
-node server.js  # Will automatically create new database
-```
-
----
-
-## 💡 Best Practices
-
-1. ✅ **Always use scripts to start/stop servers**
-   - Use `start-servers.bat`/`start-servers.sh` to start
-   - Use `stop-servers.bat`/`stop-servers.sh` to stop
-   - Don't directly close command line windows
-
-2. ✅ **Check documentation first when encountering issues**
-   - Review the FAQ section in this document
-   - Check browser console for error messages
-
-3. ✅ **Use configuration files to manage ports**
-   - Modify `src/config/api.js` instead of hardcoding
-
-4. ✅ **Regular cleanup**
-   - Stop servers at the end of each day
-   - Avoid accumulation of zombie processes
-
-5. ✅ **Regular backups**
-   - Backup `backend/database.sqlite` file
-   - Regularly push to GitHub
-
----
-
-## 🎯 Recommended Workflow
-
-### During Development
-
-```bash
-# 1. Start servers (first time each day)
-Double-click: start-servers.bat (Windows)
-Or run: ./start-servers.sh (macOS/Linux)
-
-# 2. Develop...
-
-# 3. Stop servers (end of day)
-Double-click: stop-servers.bat (Windows)
-Or run: ./stop-servers.sh (macOS/Linux)
-```
-
-### When Encountering Port Conflicts
-
-```bash
-# Option 1: Wait for port release
-Wait 2-5 minutes
-Re-run startup script
-
-# Option 2: Restart computer
-Restart and then start servers
+.
+├── docker-compose.yml              # Development environment config
+├── docker-compose.prod.yml         # Production environment config
+├── docker-compose.hub.yml          # Docker Hub pull config
+├── docker-start.bat / .sh          # Start development environment script
+├── docker-stop.bat / .sh           # Stop services script (supports dev/prod/hub)
+├── docker-pull-start.bat / .sh     # Pull from Docker Hub and start script
+├── build-and-push.sh / .bat        # Docker Hub build and push script
+│
+└── Newsworthy Editor/
+    ├── Dockerfile                  # Frontend Dockerfile
+    └── backend/
+        ├── Dockerfile              # Backend Dockerfile
+        └── data/                   # Data directory (persistent)
+            └── database.sqlite
 ```
 
 ---
 
-## 🔒 Security & Privacy
+## Best Practices
 
-- ✅ **Encrypted Storage**: GitHub tokens are stored with AES-256 encryption
-- ✅ **Local-First**: All data is saved locally, nothing sent to third parties
-- ✅ **No Tracking**: No analytics or user tracking
-- ⚠️ **Token Safety**: Never share your GitHub token with anyone
-- ⚠️ **Token Leaked?**: Immediately revoke it on GitHub and generate a new one
-- 🔄 **Regular Updates**: Update your GitHub token periodically for security
+### Development Environment
+
+1. Use development mode for daily development
+2. Frontend automatically hot reloads after code changes
+3. Backend code changes require container restart
+4. Regularly check logs to ensure services are running properly
+
+### Production Environment
+
+1. Use production mode for deployment
+2. Configure HTTPS (using reverse proxy)
+3. Set resource limits
+4. Regularly backup database
+5. Monitor service health status
+
+### Docker Hub
+
+1. Use semantic versioning
+2. Push both `latest` and version tags
+3. Regularly update base images
+4. Use automation scripts to simplify workflow
+
+### Security Recommendations
+
+1. Don't hardcode sensitive information in code
+2. Use environment variables or Docker Secrets
+3. Regularly update base images
+4. Limit resource usage
+5. Configure firewall rules
 
 ---
 
-## 📚 Related Documentation
+## Related Resources
 
-- **Chinese Documentation**: `README-CN.md`
-- **Project Root**: Contains startup scripts and configuration files
-
----
-
-## 📝 License
-
-This project is part of a capstone project for educational purposes.
+- [Docker Official Documentation](https://docs.docker.com/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Dockerfile Best Practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
 
 ---
 
-## 🤝 Contributing
-
-This is an academic project. For issues or suggestions:
-1. Check existing documentation
-2. Review the FAQ section
-3. Contact the development team
-
----
-
-**Last Updated**: November 2, 2025  
-**Version**: 0.0.0  
-**Course**: COMP9900
+**Last Updated:** January 2025

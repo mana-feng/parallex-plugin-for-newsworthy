@@ -1,7 +1,6 @@
 <template>
-  <button class="nw-sidebar-btn nw-sidebar-btn-sm nw-sidebar-btn-secondary" @click.stop="handleClick">
-    <span class="btn-icon">🎞️</span>
-    <span>Add Slide</span>
+  <button class="add-slide-btn" @click.stop="handleClick">
+    + Add Slide
   </button>
 </template>
 
@@ -21,13 +20,18 @@ const handleClick = () => {
 </script>
 
 <style scoped>
-.nw-sidebar-btn {
-  /* Additional specific styles for slide buttons */
+.add-slide-btn {
+  padding: 6px 12px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
 }
 
-.btn-icon {
-  margin-right: 4px;
-  font-weight: bold;
+.add-slide-btn:hover {
+  background: #45a049;
 }
 </style>
 

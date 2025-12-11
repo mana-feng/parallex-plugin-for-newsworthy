@@ -1,8 +1,7 @@
 <template>
   <div>
-    <button class="nw-sidebar-btn nw-sidebar-btn-secondary" @click="handleAddVideo" :disabled="disabled">
-      <span class="btn-icon">🎥</span>
-      <span>Add Video Block</span>
+    <button class="btn" @click="handleAddVideo" :disabled="disabled">
+      + Add Video Block
     </button>
 
     <!-- Video Modal -->
@@ -123,14 +122,48 @@ const confirmAddVideo = async () => {
 </script>
 
 <style scoped>
-.nw-sidebar-btn {
-  /* Additional specific styles for video block button */
+.btn {
+  position: relative;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #0ea5e9;
+  border-radius: 10px;
+  background-color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #075985;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+  text-align: left;
+  box-shadow: 0 1px 0 rgba(14, 165, 233, 0.15);
+  overflow: hidden;
 }
 
-.btn-icon {
-  margin-right: 8px;
-  font-weight: bold;
+.btn:hover:not(:disabled) {
+  background-color: #e0f2fe;
+  box-shadow: 0 6px 16px rgba(14, 165, 233, 0.20);
+  transform: translateY(-1px);
 }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: #9ca3af;
+}
+
+.btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100%);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+}
+
+.btn:hover::after { left: 120%; }
 
 .modal-overlay {
   position: fixed;

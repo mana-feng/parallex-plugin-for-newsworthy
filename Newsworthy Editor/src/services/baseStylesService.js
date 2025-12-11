@@ -23,10 +23,10 @@ export function getBaseResetCSS() {
         }
 
         body {
-            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", sans-serif;
-            line-height: 1.65;
-            color: #111827;
-            background-color: transparent;
+            font-family: Georgia, "Times New Roman", Times, serif;
+            line-height: 1.75;
+            color: #111111;
+            background-color: #ffffff;
         }
     `;
 }
@@ -92,7 +92,7 @@ export function getSectionCSS() {
             margin: 0;
             box-sizing: border-box;
             position: relative;
-            border-top: 2px solid #e0e0e0;
+            border-top: 2px solid #e5e7eb;
             /* Remove padding to let background color/image extend to edges */
             padding: 0;
             overflow: visible;
@@ -123,7 +123,7 @@ export function getBlockWrapperCSS() {
             transition: padding 0.2s ease;
             /* Center content and limit max-width for readability on large screens */
             margin: 0 auto;
-            max-width: 1400px;
+            max-width: 960px;
         }
     `;
 }

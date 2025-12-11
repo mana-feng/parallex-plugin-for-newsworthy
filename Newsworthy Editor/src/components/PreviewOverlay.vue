@@ -116,7 +116,7 @@ function exportHtml() {
     display: grid;
     grid-template-rows: auto 1fr;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.95);
 }
 
 /* top */
@@ -125,32 +125,36 @@ function exportHtml() {
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
-    background: #f6d4d4;
-    color: #333;
-    border-bottom: 1px solid #dca4a4;
+    background: #ffffff;
+    color: #111111;
+    border-bottom: 1px solid #e5e7eb;
     font-size: 14px;
 }
 
 .toolbar button,
 .toolbar select,
 .toolbar input[type="range"] {
-    border: 1px solid #dca4a4;
+    position: relative;
+    border: 1px solid #d1d5db;
     border-radius: 8px;
     background: #ffffff;
-    color: #b91c1c;
+    color: #111111;
     padding: 6px 10px;
     font-size: 13px;
     cursor: pointer;
     outline: none;
-    transition: all 0.2s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    overflow: hidden;
 }
 
 /* hover */
 .toolbar button:hover,
 .toolbar select:hover,
 .toolbar input[type="range"]:hover {
-    background: #fee2e2;
-    border-color: #c77a7a;
+    background: #f9fafb;
+    border-color: #9ca3af;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(17, 17, 17, 0.08);
 }
 
 /* select */
@@ -161,14 +165,14 @@ function exportHtml() {
 
 /* slider */
 .toolbar input[type="range"] {
-    accent-color: #c77a7a;
+    accent-color: #111111;
     cursor: pointer;
 }
 
 /* viewport */
 .viewport {
     position: relative;
-    background: #fafafa;
+    background: #ffffff;
     width: 100%;
     height: 100%;
     display: flex;
@@ -186,3 +190,18 @@ function exportHtml() {
     display: block;
 }
 </style>
+.toolbar button::after,
+.toolbar select::after {
+content: "";
+position: absolute;
+top: 0;
+left: -40%;
+width: 40%;
+height: 100%;
+background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100%);
+transform: skewX(-20deg);
+transition: left 0.5s ease;
+}
+
+.toolbar button:hover::after,
+.toolbar select:hover::after { left: 120%; }

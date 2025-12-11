@@ -50,7 +50,6 @@ export const useEditorStore = defineStore('editor', () => {
         sections.value.push(parallaxService.createParallaxSection())
     }
 
-    // TSB新增：在当前选中 section 中创建文本块（text block）
     const addTextBlock = () => {
         const sec = currSection.value;
         if (!sec) return;
@@ -67,7 +66,6 @@ export const useEditorStore = defineStore('editor', () => {
         selected.value = { type: 'text', sectionId: sec.id, blockId: newBlock.id };
     };
 
-    // TSB宽度设置：限制并更新文本块的最大宽度（ch/px）
     const setTextBlockWidth = (val, unit = 'ch') => {
         const blk = currBlock.value
         if (!blk || blk.type !== 'text') return
@@ -478,6 +476,7 @@ export const useEditorStore = defineStore('editor', () => {
             caption: caption || '',
             captionPosition: captionPosition || 'bottom',
             captionBubbleAnimated: captionBubbleAnimated || false,
+            captionFontSize: captionFontSize || null,
         } : null
 
         blk.images = img ? [img] : []
@@ -578,6 +577,15 @@ export const useEditorStore = defineStore('editor', () => {
     const deleteSelected = () => {
         if (!selected.value.type) return
 
+        // delete parallax section
+        if (selected.value.type === 'parallax-section') {
+            sections.value = sections.value.filter(s => s.id !== selected.value.sectionId)
+            selected.value = { type: null, sectionId: null, blockId: null, imageIndex: null, part: null }
+            activeEditor.value = null
+            return
+        }
+
+        // delete normal section
         if (selected.value.type === 'section') {
             sections.value = sections.value.filter(s => s.id !== selected.value.sectionId)
             selected.value = { type: null, sectionId: null, blockId: null, imageIndex: null }
@@ -590,6 +598,7 @@ export const useEditorStore = defineStore('editor', () => {
         const blk = currBlock.value
         if (!blk) return
 
+        // delete image block
         if (selected.value.type === 'image' && Array.isArray(blk.images) && selected.value.imageIndex != null) {
             blk.images.splice(selected.value.imageIndex, 1)
             if (blk.images.length === 0) {
@@ -601,16 +610,33 @@ export const useEditorStore = defineStore('editor', () => {
             return
         }
 
+        // delete normal block
         sec.blocks = sec.blocks.filter(b => b.id !== selected.value.blockId)
         selected.value = { type: 'section', sectionId: sec.id, blockId: null, imageIndex: null }
     }
 
-
     const currBlock = computed(() => {
-        const sec = currSection.value
-        if (!sec || !selected.value.blockId) return null
-        return sec.blocks?.find(b => b.id === selected.value.blockId) || null
+        const sel = selected.value
+        if (!sel.sectionId || !sel.blockId) return null
+
+        const sec = sections.value.find(s => s.id === sel.sectionId)
+        if (!sec) return null
+
+        // normal section 
+        if (sec.type === 'section') {
+            return sec.blocks?.find(b => b.id === sel.blockId) || null
+        }
+
+        // parallax section
+        if (sec.type === 'parallax' && sel.part?.slideIndex != null) {
+            const slide = sec.slides?.[sel.part.slideIndex]
+            if (!slide) return null
+            return slide.blocks?.find(b => b.id === sel.blockId) || null
+        }
+
+        return null
     })
+
 
     const isPreview = ref(false)
 
@@ -737,6 +763,25 @@ export const useEditorStore = defineStore('editor', () => {
         }
     };
 
+    const setImgCaptionFontSize = (size) => {
+        const img = currImage.value;
+        if (!img) return;
+        img.captionFontSize = size || '0.9rem';
+    };
+
+    const setFullWidthImgCaptionFontSize = (size) => {
+        const blk = currBlock.value;
+        if (!blk || blk.type !== 'fullwidth-image') return;
+        blk.image.captionFontSize = size || '0.9rem';
+    };
+
+    const setFloatImgCaptionFontSize = (size) => {
+        const blk = currBlock.value;
+        if (!blk || blk.type !== 'float-image') return;
+        blk.image.captionFontSize = size || '0.9rem';
+    };
+
+
     return {
         sections,
         selected,
@@ -799,5 +844,8 @@ export const useEditorStore = defineStore('editor', () => {
         collectLocalImageIds,
         collectLocalImageDetails,
         replaceLocalUrls,
+        setImgCaptionFontSize,
+        setFullWidthImgCaptionFontSize,
+        setFloatImgCaptionFontSize,
     }
 });

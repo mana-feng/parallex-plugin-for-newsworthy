@@ -1,0 +1,52 @@
+version: '3.8'
+
+# Docker Compose configuration for pulling images from Docker Hub
+# Usage: 
+#   1. Replace manafeng with your Docker Hub username (if different)
+#   2. Run: docker compose -f docker-compose.hub.yml up -d
+#
+# Or use the convenience script:
+#   Windows: docker-pull-start.bat
+#   Linux/Mac: ./docker-pull-start.sh
+
+services:
+  backend:
+    # Replace 'manafeng' with your Docker Hub username if different
+    image: manafeng/newsworthy-backend:latest
+    container_name: newsworthy-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_PATH=/app/data/database.sqlite
+      - NODE_ENV=production
+    volumes:
+      # Persist database files
+      - ./Newsworthy Editor/backend/data:/app/data
+    restart: unless-stopped
+    networks:
+      - newsworthy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    # Replace 'manafeng' with your Docker Hub username if different
+    image: manafeng/newsworthy-frontend:latest
+    container_name: newsworthy-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - newsworthy-network
+
+networks:
+  newsworthy-network:
+    driver: bridge
+

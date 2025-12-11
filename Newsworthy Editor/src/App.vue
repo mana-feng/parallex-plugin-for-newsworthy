@@ -1,5 +1,5 @@
 <template>
-  <div id="app-root" style="width: 100%; height: 100vh;">
+  <div id="app-root" style="width: 100%; height: 100%;">
     <Editor />
     <InputModal ref="inputModalRef" />
     <CustomDialog ref="customDialogRef" />
@@ -24,7 +24,7 @@ onMounted(() => {
   } else {
     console.error('InputModal ref is null')
   }
-  
+
   // Initialize global dialog instance
   if (customDialogRef.value) {
     registerDialog(customDialogRef.value)
@@ -44,11 +44,12 @@ onMounted(() => {
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: Georgia, "Times New Roman", Times, serif;
+  /* overflow: hidden; */
 }
 
 #app {
   width: 100%;
-  height: 100vh;
+  height: 100%;
 }
 </style>

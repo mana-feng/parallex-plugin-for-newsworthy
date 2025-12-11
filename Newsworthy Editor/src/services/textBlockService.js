@@ -168,7 +168,6 @@ export function getTextBlockCSS() {
  * @param {boolean} useProseClass - Whether to use .prose class (for buildHtml) or .text-block (for export)
  * @returns {string} - HTML string
  */
-// TSB导出实现位置：根据编辑数据构建文本块的静态 HTML（编辑态用 .prose，导出态用 .text-block）
 export function buildTextBlockHTML(block, useProseClass = true) {
     if (!block || block.type !== 'text') {
         return '';

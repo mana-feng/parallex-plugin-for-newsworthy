@@ -1,0 +1,65 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# 构建产物
+dist/
+build/
+*.log
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker 相关
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 文档
+*.md
+README*
+LICENSE
+
+# 测试
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 数据库文件（在容器中会重新创建）
+*.sqlite
+*.sqlite3
+*.db
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 日志文件
+logs/
+*.log
+
+# 启动脚本（不需要在容器中）
+*.bat
+*.sh
+

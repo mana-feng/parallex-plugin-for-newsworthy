@@ -1,0 +1,41 @@
+# Node modules
+node_modules/
+
+# 构建产物
+dist/
+build/
+*.log
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# 数据库文件（通过 volume 挂载）
+database.sqlite
+database.sqlite3
+*.db
+
+# 数据目录（通过 volume 挂载）
+data/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 日志文件
+logs/
+*.log
+

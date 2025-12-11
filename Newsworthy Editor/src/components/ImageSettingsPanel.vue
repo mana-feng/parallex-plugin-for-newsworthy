@@ -54,6 +54,13 @@
       </select>
     </div>
 
+    <!-- Caption Font Size -->
+    <div class="setting-item">
+      <label>Caption Font Size (px)</label>
+      <input type="number" min="10" max="40" :value="parseInt((image.captionFontSize || '14px'))"
+        @input="$emit('updateCaptionFontSize', $event.target.value + 'px')" />
+    </div>
+
     <!-- Bubble animate-->
     <div class="setting-item" v-if="image.captionPosition === 'bubble'">
       <label class="inline-flex items-center gap-2 text-sm">
@@ -63,7 +70,7 @@
       </label>
     </div>
 
-    <div class="flex gap-2">
+    <div class="action-btns">
       <button class="btn" @click="$emit('replaceImage')">Replace Image</button>
       <button class="btn btn-danger" @click="$emit('deleteImage')">Delete</button>
     </div>
@@ -117,5 +124,11 @@ const isFullWidth = computed(() => {
   border-color: #fecaca;
   background: #fee2e2;
   color: #b91c1c;
+}
+
+.action-btns {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
 }
 </style>

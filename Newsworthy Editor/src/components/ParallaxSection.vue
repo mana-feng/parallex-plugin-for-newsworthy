@@ -1,11 +1,20 @@
 <template>
   <div class="parallax-section-editor"
-    :class="{ 'checked': store.selected?.type === 'parallax' && store.selected?.sectionId === section.id }"
-    @click.stop="store.selectSection(section.id)">
-    
+    :class="{ 'checked': store.selected?.type === 'parallax' && store.selected?.sectionId === section.id }" @click.stop>
+
     <div class="parallax-header">
       <h3>⇅ Parallax Section (Scrollytelling)</h3>
-      <AddSlideButton :section="section" />
+      <div class="header-actions">
+        <button class="delete-section-btn" @click.stop="
+          store.selected = {
+            type: 'parallax-section',
+            sectionId: section.id
+          };
+        store.deleteSelected();
+        ">
+          ✖
+        </button>
+      </div>
     </div>
 
     <div class="slides-container">
@@ -13,27 +22,19 @@
         <div class="slide-header">
           <h4>Slide {{ index + 1 }}</h4>
           <div class="slide-actions">
-            <button v-if="section.slides.length > 1" @click.stop="removeSlide(index)" class="remove-slide-btn">×</button>
+            <button v-if="section.slides.length > 1" @click.stop="removeSlide(index)"
+              class="remove-slide-btn">×</button>
           </div>
         </div>
 
         <div class="slide-bg-control">
           <label>Background Image:</label>
           <div class="bg-input-group">
-            <input 
-              type="text" 
-              v-model="slide.bgImg" 
-              placeholder="Enter image URL or upload"
-              @input="updateSlideBg(index, $event.target.value)"
-            />
+            <input type="text" v-model="slide.bgImg" placeholder="Enter image URL or upload"
+              @input="updateSlideBg(index, $event.target.value)" />
             <label class="upload-btn">
               ⬆ Upload
-              <input 
-                type="file" 
-                accept="image/*" 
-                @change="handleUploadBg(index, $event)"
-                style="display: none;"
-              />
+              <input type="file" accept="image/*" @change="handleUploadBg(index, $event)" style="display: none;" />
             </label>
           </div>
           <div v-if="slide.bgImg" class="bg-preview">
@@ -46,22 +47,25 @@
             <label>Content:</label>
             <AddTextToSlideButton :section="section" :slideIndex="index" />
           </div>
-          
+
           <div v-for="blk in slide.blocks" :key="blk.id" class="content-block"
             :class="{ 'block-checked': store.selected?.blockId === blk.id }"
             @click.stop="selectSlideBlock(slide.id, blk.id, index)">
-            
+
             <div v-if="blk.type === 'text'" class="text-wrapper">
               <TipTapBlock v-model="blk.html" @focused="(ed) => {
                 selectSlideBlock(slide.id, blk.id, index);
                 store.setActiveEditor(ed);
               }" />
             </div>
-            
+
             <button @click.stop="removeBlockFromSlide(index, blk.id)" class="remove-block-btn">×</button>
           </div>
         </div>
       </div>
+    </div>
+    <div class="add-slide-wrapper">
+      <button class="add-slide-btn" @click.stop="parallaxService.addSlide(section)">➕ Add Slide</button>
     </div>
   </div>
 </template>
@@ -71,7 +75,7 @@ import { useEditorStore } from '../stores/editorStore'
 import TipTapBlock from './TipTapBlock.vue'
 import * as parallaxService from '@/services/parallaxService'
 import { localToLocalhost } from '@/utils/imageUrlUtils'
-import { ref, watch } from 'vue'
+// import { ref, watch } from 'vue'
 import AddSlideButton from './add/AddSlideButton.vue'
 import AddTextToSlideButton from './add/AddTextToSlideButton.vue'
 
@@ -87,7 +91,7 @@ const store = useEditorStore()
 // Function to get display URL for slide background images (local:// format)
 function getSlideBgDisplayUrl(url, slideIndex) {
   if (!url || typeof url !== 'string') return url
-  
+
   // For local:// URLs, convert synchronously
   return localToLocalhost(url)
 }
@@ -103,7 +107,7 @@ const updateSlideBg = (index, url) => {
 const handleUploadBg = async (index, event) => {
   const file = event.target.files?.[0]
   if (!file) return
-  
+
   await parallaxService.handleUploadBg(props.section, index, file)
 }
 
@@ -113,11 +117,11 @@ const removeBlockFromSlide = (slideIndex, blockId) => {
 
 const selectSlideBlock = (slideId, blockId, slideIndex) => {
   store.selected = {
-    type: 'parallax-block',
+    type: 'text',
     sectionId: props.section.id,
-    slideId: slideId,
-    slideIndex: slideIndex,
-    blockId: blockId
+    blockId: blockId,
+    imageIndex: null,
+    part: { slideIndex }
   }
 }
 
@@ -317,9 +321,9 @@ const selectSlideBlock = (slideId, blockId, slideIndex) => {
 
 .text-wrapper {
   width: 100%;
-  word-wrap: break-word;       
-  overflow-wrap: break-word;    
-  word-break: break-word;   
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .remove-block-btn {
@@ -344,5 +348,39 @@ const selectSlideBlock = (slideId, blockId, slideIndex) => {
 .remove-block-btn:hover {
   background: #da190b;
 }
-</style>
 
+.delete-section-btn {
+  background: #ff4d4f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 18px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.delete-section-btn:hover {
+  background: #d9363e;
+}
+
+.add-slide-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.add-slide-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 40px;
+  padding: 8px 16px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.add-slide-btn:hover {
+  background: #45a049;
+}
+</style>

@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Newsworthy Editor/backend
+      dockerfile: Dockerfile
+    container_name: newsworthy-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_PATH=/app/data/database.sqlite
+      - NODE_ENV=production
+    volumes:
+      # Persist database files
+      - ./Newsworthy Editor/backend/data:/app/data
+      # Uncomment below if you need to persist config files
+      # - ./Newsworthy Editor/backend/config:/app/config
+    restart: unless-stopped
+    networks:
+      - newsworthy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./Newsworthy Editor
+      dockerfile: Dockerfile
+      target: development
+    container_name: newsworthy-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - newsworthy-network
+    volumes:
+      # Mount source code to support hot reload (development mode)
+      - ./Newsworthy Editor/src:/app/src
+      - ./Newsworthy Editor/public:/app/public
+      - ./Newsworthy Editor/index.html:/app/index.html
+      - ./Newsworthy Editor/vite.config.js:/app/vite.config.js
+      - ./Newsworthy Editor/package.json:/app/package.json
+      - ./Newsworthy Editor/jsconfig.json:/app/jsconfig.json
+
+networks:
+  newsworthy-network:
+    driver: bridge
+

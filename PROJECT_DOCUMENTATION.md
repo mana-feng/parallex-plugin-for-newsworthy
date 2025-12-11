@@ -837,53 +837,323 @@ npm run dev
 
 ## API Endpoints
 
+> The backend API service runs at `http://localhost:3001/api` by default. All endpoints are prefixed with `/api`.
+
+### Basics
+- **Base URL**: `http://localhost:3001/api`
+- **Request wrapper**: `request(endpoint, options)` in `src/services/apiService.js` using `fetch`
+  - Default `Content-Type: application/json`
+  - Unified return: `{ ok: boolean, data?: any, error?: string, response?: Response }`
+  - JSON is parsed by default; non-JSON returns plain text in `data`
+- **Authentication**: None (local service)
+
 ### Health & Status
-- `GET /api/health` - Health check
-- `GET /api/github/status` - GitHub configuration status
+
+#### `GET /api/health`
+- **Purpose**: Health check endpoint
+- **Response**: Health status
+
+#### `GET /api/github/status`
+- **Purpose**: Check GitHub configuration status
+- **Response**: `{ configured: boolean, owner?: string, repo?: string }`
+- **Front-end call**: `getGitHubStatus` (`src/services/apiService.js`)
 
 ### GitHub Settings
-- `GET /api/settings/github` - Get GitHub settings
-- `POST /api/settings/github` - Save GitHub settings
-- `POST /api/settings/github/test` - Test GitHub connection
 
-### Groups
-- `GET /api/groups` - Get all groups
-- `POST /api/groups` - Create group
-- `PUT /api/groups/:id` - Update group
-- `DELETE /api/groups/:id` - Delete group
-- `POST /api/groups/sync/push` - Push groups to GitHub
-- `POST /api/groups/sync/pull` - Pull groups from GitHub
-- `POST /api/groups/sync/smart` - Smart sync groups
+#### `GET /api/settings/github`
+- **Purpose**: Get GitHub settings
+- **Response**: `{ configured: boolean, config?: { owner, repo, branch, baseUrl } }`
+- **Front-end call**: `getGitHubSettings` (`src/services/apiService.js`)
+
+#### `POST /api/settings/github`
+- **Purpose**: Save GitHub settings
+- **Request body**:
+```json
+{
+  "token": "ghp_...",
+  "owner": "username",
+  "repo": "repository-name",
+  "branch": "main",
+  "baseUrl": "optional-base-url"
+}
+```
+- **Response**: `{ success: true, message }`
+- **Front-end call**: `saveGitHubSettings` (`src/components/SettingsPanel.vue`)
+
+#### `POST /api/settings/github/test`
+- **Purpose**: Test GitHub connection
+- **Request body**: `{ token, owner, repo }`
+- **Response**: `{ success: true, message }` or `{ success: false, error }`
+- **Front-end call**: `testGitHubConnection` (`src/components/SettingsPanel.vue`)
+
+### Images: Storage & Upload
+
+#### `POST /api/images/temp/save`
+- **Purpose**: Save a front-end generated `dataURL` to local backend database (temporary image)
+- **Request body**:
+```json
+{
+  "imageData": "data:image/png;base64,...",
+  "filename": "my-image.png",
+  "imageId": "optional-id"
+}
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "imageId": "abc123",
+  "localUrl": "http://localhost:3001/api/images/temp/abc123",
+  "filename": "my-image.png",
+  "originalFilename": "my-image.png"
+}
+```
+- **Front-end call**: `saveTempImage` (`src/services/apiService.js`)
+- **Backend**: `backend/imageBlockAPI.js`
+
+#### `GET /api/images/temp/:imageId`
+- **Purpose**: Fetch temporary image binary for canvas render and export
+- **Response**: `image/*` binary
+- **Front-end usage**: `local://` → `http://localhost:3001/api/images/temp/{id}` (`src/processes/html-export/exportHelpers.js`, `src/composables/usePageSave.js`)
+
+#### `GET /api/images/temp`
+- **Purpose**: Get all temporary images
+- **Response**: Array of temporary image objects
+
+#### `DELETE /api/images/temp/:imageId`
+- **Purpose**: Delete temporary image
+- **Response**: `{ success: true }`
+
+#### `POST /api/images/temp/validate`
+- **Purpose**: Validate existence of a list of temporary image IDs
+- **Request body**:
+```json
+{ "imageIds": ["id1", "id2"] }
+```
+- **Response**:
+```json
+{
+  "success": true,
+  "total": 2,
+  "valid": 2,
+  "invalid": 0,
+  "validation": {
+    "valid": [{ "imageId": "id1", "filename": "a.png", "createdAt": "..." }],
+    "invalid": []
+  }
+}
+```
+- **Front-end call**: `validateImageIds` (`src/services/apiService.js`)
+- **Backend**: `backend/imageBlockAPI.js`
+
+#### `POST /api/images/check-conflict`
+- **Purpose**: Check if an image conflicts on GitHub
+- **Request body**:
+```json
+{ "filename": "a.png", "customDate": "optional" }
+```
+- **Response**:
+```json
+{ "exists": true, "sha": "...", "path": "assets/a.png", "sanitizedFilename": "a.png" }
+```
+- **Front-end call**: `checkImageConflict` (`src/services/apiService.js`)
+
+#### `POST /api/images/upload-to-github`
+- **Purpose**: Upload single image to GitHub
+- **Request body**: Image upload data
+- **Response**: Upload result with GitHub URL
+
+#### `POST /api/images/temp/upload-to-github`
+- **Purpose**: Batch upload temporary images to GitHub, with overwrite/rename strategies
+- **Request body**:
+```json
+{
+  "imageIds": ["id1", "id2"],
+  "conflictResolutions": {
+    "id1": { "action": "overwrite", "sha": "..." },
+    "id2": { "action": "rename", "newFilename": "b-v2.png" }
+  }
+}
+```
+- **Response** (example):
+```json
+{
+  "success": true,
+  "uploaded": 2,
+  "failed": 0,
+  "conflicts": 0,
+  "results": {
+    "success": [{ "imageId": "id1", "localUrl": "...", "githubUrl": "...", "filename": "a.png" }],
+    "failed": [],
+    "conflicts": []
+  }
+}
+```
+- **Front-end call**: `uploadImagesToGitHub` (`src/services/apiService.js`)
+- **Backend**: `backend/imageBlockAPI.js`
+
+#### `POST /api/images/temp/cleanup`
+- **Purpose**: Manual cleanup of old images
+- **Response**: `{ success: true, deleted: number }`
+
+#### `POST /api/images/upload`
+- **Purpose**: Legacy upload endpoint (deprecated)
 
 ### Pages
-- `GET /api/pages` - Get all pages (with filters)
-- `GET /api/pages/:id` - Get single page
-- `POST /api/pages` - Create page (save to database)
-- `PUT /api/pages/:id` - Update page
-- `PUT /api/pages/by-filename/:filename` - Update by filename
-- `DELETE /api/pages/:id` - Delete page
-- `POST /api/pages/reorder` - Reorder pages
-- `POST /api/pages/:id/upload` - Upload page to GitHub
 
-### Images
-- `POST /api/images/temp/save` - Save image to local database
-- `GET /api/images/temp/:imageId` - Get image by ID
-- `GET /api/images/temp` - Get all temporary images
-- `DELETE /api/images/temp/:imageId` - Delete temporary image
-- `POST /api/images/check-conflict` - Check if image exists in GitHub
-- `POST /api/images/upload-to-github` - Upload single image to GitHub
-- `POST /api/images/temp/validate` - Validate image IDs
-- `POST /api/images/temp/upload-to-github` - Batch upload images to GitHub
-- `POST /api/images/temp/cleanup` - Manual cleanup of old images
-- `POST /api/images/upload` - Legacy upload endpoint
+#### `GET /api/pages`
+- **Purpose**: Get all pages (with filters)
+- **Query parameters**: `group_id?: number`, `search?: string`
+- **Response**: Array of pages (includes `sync_status`)
+- **Front-end call**: `getPages` (`src/services/apiService.js`)
+- **Backend**: `backend/server.js`
+
+#### `GET /api/pages/:id`
+- **Purpose**: Get single page
+- **Response**: Single page object
+- **Front-end call**: `getPage` (`src/services/apiService.js`)
+
+#### `POST /api/pages`
+- **Purpose**: Create a new page (save to database)
+- **Request body**:
+```json
+{
+  "title": "My Page",
+  "filename": "my-page.html",
+  "html_content": "<html>...",
+  "sections_data": [{"id":1,"type":"text","html":"..."}],
+  "group_id": null,
+  "preview_image": "data:image/png;base64,..."
+}
+```
+- **Response**: Page object
+- **Front-end call**: `createPage` (`src/processes/html-save/savePage.js` via `src/services/apiService.js`)
+
+#### `PUT /api/pages/:id`
+- **Purpose**: Update a page by ID
+- **Request body**: Any page fields (`title/filename/html_content/sections_data/group_id/sort_order/preview_image`)
+- **Response**: Updated page object
+- **Front-end call**: `updatePage` (`src/services/apiService.js`)
+
+#### `PUT /api/pages/by-filename/:filename`
+- **Purpose**: Update a page by filename (used by Update Page button)
+- **Request body**: `{ title?, html_content?, sections_data? }`
+- **Response**: Updated page object
+- **Front-end call**: `updatePageByFilename` (`src/components/header/UpdateButton.vue`)
+
+#### `POST /api/pages/reorder`
+- **Purpose**: Reorder pages
+- **Request body**: `{ pageIds: number[] }` (front-end) or `{ pages: [{ id: number, sort_order: number }] }` (backend expected)
+- **Response**: `{ success: true }`
+- **Note**: Payload mismatch between front-end and backend; see Notes section below
+
+#### `POST /api/pages/:id/upload`
+- **Purpose**: Upload page content to GitHub
+- **Response** (example):
+```json
+{ "github_url": "https://github.com/.../my-page.html", "images_uploaded": 3 }
+```
+- **Front-end call**: `uploadPageToGitHub` (`src/services/apiService.js`)
+
+#### `DELETE /api/pages/:id`
+- **Purpose**: Delete a page
+- **Response**: `{ success: true }`
+- **Front-end call**: `deletePage` (`src/services/apiService.js`)
+
+### Groups
+
+#### `GET /api/groups`
+- **Purpose**: Get all groups
+- **Response**: Array `{ id, name, description, color, page_count? }`
+- **Front-end call**: `getGroups` (`src/services/apiService.js`)
+
+#### `POST /api/groups`
+- **Purpose**: Create a new group
+- **Request body**: `{ name, description?, color? }`
+- **Response**: Created group object
+- **Front-end call**: `createGroup` (`src/services/apiService.js`)
+
+#### `PUT /api/groups/:id`
+- **Purpose**: Update a group
+- **Request body**: `{ name?, description?, color? }`
+- **Response**: Updated group object
+- **Front-end call**: `updateGroup` (`src/services/apiService.js`)
+
+#### `DELETE /api/groups/:id`
+- **Purpose**: Delete a group
+- **Response**: `{ success: true }`
+- **Front-end call**: `deleteGroup` (`src/services/apiService.js`)
+
+#### `POST /api/groups/sync/push`
+- **Purpose**: Push groups to GitHub
+- **Response**: Includes stats or action `action: 'no_change'|'synced'`
+- **Front-end call**: `syncGroupsPush` (`src/services/apiService.js`)
+
+#### `POST /api/groups/sync/pull`
+- **Purpose**: Pull groups from GitHub
+- **Response**: Includes stats
+- **Front-end call**: `syncGroupsPull` (`src/services/apiService.js`)
+
+#### `POST /api/groups/sync/smart`
+- **Purpose**: Smart sync groups (merge local and GitHub changes)
+- **Response**: Includes stats or action
+- **Front-end call**: `syncGroupsSmart` (`src/services/apiService.js`)
 
 ### GitHub Operations
-- `GET /api/github/files` - List all HTML files in repository
-- `GET /api/github/file/:path` - Get specific file content
-- `GET /api/github/files/all` - Get all files with content
-- `POST /api/github/pull-all` - Pull all pages from GitHub
-- `POST /api/github/sync` - Sync specific file
-- `POST /api/github/pull` - Pull single file
+
+#### `GET /api/github/files`
+- **Purpose**: List all HTML files in repository
+- **Response**: Array of file paths
+
+#### `GET /api/github/file/:path`
+- **Purpose**: Get specific file content
+- **Response**: File content
+
+#### `GET /api/github/files/all`
+- **Purpose**: Get all files with content
+- **Response**: Array of files with their content
+
+#### `POST /api/github/pull-all`
+- **Purpose**: Pull all pages from GitHub
+- **Response** (example):
+```json
+{ "success": true, "files": ["a.html", "b.html"], "stats": { "total": 10, "saved": 9 } }
+```
+- **Front-end call**: `pullAllFromGitHub` (`src/components/storage/PullAllButton.vue`)
+
+#### `POST /api/github/sync`
+- **Purpose**: Sync specific file
+- **Request body**: `{ path: string }`
+- **Response**: Sync result
+
+#### `POST /api/github/pull`
+- **Purpose**: Pull single file
+- **Request body**: `{ path: string }`
+- **Response**: Pull result
+
+### Status Codes & Errors
+- **2xx**: Success; returns JSON or binary resources
+- **4xx**: Client errors; `apiService.request` wraps into `{ ok: false, error }`
+- **5xx**: Server errors; front-end shows messages via `src/utils/dialog.js`
+
+### API Implementation Notes
+
+#### Front-end Service Wrapper
+- **Service wrapper**: `src/services/apiService.js`
+- **Image flow**: `src/services/imageBlockService.js`, `src/services/imageProcessingService.js`, `src/processes/html-export/exportHelpers.js`, `src/composables/usePageSave.js`
+- **Page save/update**: `src/processes/html-save/savePage.js`, `src/processes/html-save/updatePage.js`, `src/components/header/UpdateButton.vue`
+- **Storage manager**: `src/components/StorageManager.vue`, `src/components/storage/PullAllButton.vue`
+- **GitHub settings**: `src/components/SettingsPanel.vue`
+
+#### Known Issues
+- **`POST /api/pages/reorder` payload mismatch**:
+  - Front-end sends: `{ pageIds: number[] }`
+  - Backend expects: `{ pages: [{ id, sort_order }] }`
+  - **Recommendation**: Update front-end to send `{ id, sort_order }` pairs or make backend accept current payload
+
+#### Runtime Requirements
+- Start local backend at `http://localhost:3001` (see `backend/server.js`)
+- Start front-end with `npm run dev` to interact with the backend APIs
 
 ---
 

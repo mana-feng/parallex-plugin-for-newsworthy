@@ -1,11 +1,10 @@
 <template>
   <button 
-    class="nw-btn nw-btn-secondary save-btn" 
+    class="save-btn" 
     @click="handleClick"
     :disabled="disabled || isSaving"
   >
-    <span class="nw-icon">{{ isSaving ? '⏳' : '💾' }}</span>
-    <span>{{ isSaving ? 'Saving...' : 'Save New' }}</span>
+    {{ isSaving ? '⏳ Saving...' : '+ Save New' }}
   </button>
 </template>
 
@@ -77,7 +76,53 @@ const handleClick = async () => {
 
 <style scoped>
 .save-btn {
-  /* Additional styles for save button if needed */
+  position: relative;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #166534;
+  background: #ffffff;
+  border: 1px solid #16a34a;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+  box-shadow: 0 1px 0 rgba(22, 163, 74, 0.1);
+  overflow: hidden;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.25);
+  transform: translateY(-1px);
+}
+
+.save-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.save-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 100%);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+}
+
+.save-btn:hover::after {
+  left: 120%;
+}
+
+.save-btn:disabled {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 </style>
 

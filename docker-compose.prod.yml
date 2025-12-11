@@ -1,0 +1,49 @@
+version: '3.8'
+
+# Production environment configuration
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    build:
+      context: ./Newsworthy Editor/backend
+      dockerfile: Dockerfile
+    container_name: newsworthy-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_PATH=/app/data/database.sqlite
+      - NODE_ENV=production
+    volumes:
+      # Persist database files
+      - ./Newsworthy Editor/backend/data:/app/data
+    restart: unless-stopped
+    networks:
+      - newsworthy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./Newsworthy Editor
+      dockerfile: Dockerfile
+      target: production
+    container_name: newsworthy-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - newsworthy-network
+
+networks:
+  newsworthy-network:
+    driver: bridge
+
